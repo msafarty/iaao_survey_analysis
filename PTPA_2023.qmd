@@ -1,0 +1,115 @@
+---
+title: "PTPA_2023"
+format: 
+  html:
+    toc: true
+    toc-location: left
+    embed-resources: true
+
+---
+
+```{r setup, include=FALSE} 
+# Remove warnings from outputting to consumer
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+## Intro
+
+Greetings, Earthlings!
+
+## Survey Questions Visualized
+### General Topics
+
+#### Question 7
+
+```{r include = F}
+# Import packages
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(config)
+library(Rcpp)
+library(knitr)
+library(kableExtra)
+library(sf)
+library(rnaturalearth)
+library(leaflet)
+library(plotly)
+library(leaflet.extras)
+library(DT)
+library(stringr)
+library(geojsonio)
+# Grab histogram generator function
+source('functions.R', local = T) 
+#__________________Ingest, Clean, Create
+# Get PTPA 2023 response data
+ptpa23 <- read.csv('analysisData.csv')
+
+# Can eventually get this from dbo.jurisdictions
+ptpa23 <- ptpa23 %>% dplyr::mutate(intlGrp = dplyr::case_when(
+  jurisdiction_name %in% c('Alabama','Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware', 'Florida', 'Georgia',
+ 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky',
+ 'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan', 'Minnesota',
+ 'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey', 'New Mexico', 'New York', 'North Carolina', 'North Dakota',
+ 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming'
+) ~ 'USA',
+jurisdiction_name %in% c('Prince Edward Island', 'Newfoundland and Labrador','Quebec','Yukon','Alberta','British Columbia', 'Manitoba', 'New Brunswick','Northwest Territories', 'Ontario', 'Saskatchewan') ~ 'CANADA',
+T ~ 'INTL'))
+
+# Create question vector to dynamically reference in report:
+questions <- unique(ptpa23$question_desc)
+
+#__________________Prep Map Data
+# Reference: https://bookdown.org/alhdzsz/data_viz_ir/maps.html
+world <- rnaturalearth::ne_countries(scale = "small", returnclass = "sf")
+```
+
+```{r include = F, echo = F}
+world %>%
+  ggplot() + 
+  geom_sf() 
+
+```
+
+
+```{r echo = F}
+q11 <- ptpa23 %>% filter(question_num == 11 & response != 'NA')
+title <- q11$question_desc
+ggplot2::ggplot(q11, aes(y=sub_question)) + ggplot2::geom_bar(aes(y=response)) + theme_minimal() + labs(title = title, y = '') 
+```
+
+### Education
+
+#### Question 20
+Question 20 asked respondents "`r stringr::str_to_lower(questions[20])`" educational or other achievements.
+
+**temp-for data aggregation only** Non-interactive Style, No Country Group:
+
+```{r echo = F}
+q20 <- ptpa23 %>% filter(question_num == 20 & response != 'NA' & sub_question_id != 5)
+title <- q20$question_desc
+ggplot2::ggplot(q20, aes(y=sub_question)) + ggplot2::geom_bar(aes(y=response)) + theme_minimal() + labs(title = title, y = '') 
+```
+
+**temp-for data aggregation only** Interactive Style with Country Group:
+
+```{r echo = F}
+q20 <- ptpa23 %>% filter(question_num == 20 & response != 'NA' & sub_question_id != 5)
+# q20INTL <- q20 %>% filter(intlGrp == 'INTL')
+# q20USA <- q20 %>% filter(intlGrp == 'USA')
+# q20CANADA <- q20 %>% filter(intlGrp == 'CANADA')
+title <- questions[20]
+plotly::plot_ly(data = q20, y = ~sub_question, color = ~intlGrp, type = 'histogram') %>% plotly::layout(title = title, plot_bgcolor = '#e5ecf6', yaxis = list(title = "achievements"))
+```
+
+
+### Valuation
+
+#### Question 25
+
+#### Question 26
+
+```{r echo = F}
+q26 <- ptpa23 %>% filter(question_num == 26 & response != 'NA') %>% mutate(cleanResponse = as.numeric(response)) %>% group_by(intlGrp, sub_question, cleanResponse) %>% summarize(n = n()) %>% data.frame() %>% filter(!is.na(cleanResponse))
+DT::datatable(q26)
+```
