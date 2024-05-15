@@ -20,7 +20,7 @@ Greetings, Earthlings!
 ## Survey Questions Visualized
 ### General Topics
 
-#### Question 7
+
 
 ```{r include = F}
 # Import packages
@@ -71,6 +71,7 @@ world %>%
 
 ```
 
+#### Question 11
 
 ```{r echo = F}
 q11 <- ptpa23 %>% filter(question_num == 11 & response != 'NA')
