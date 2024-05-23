@@ -13,12 +13,12 @@ format:
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
 ```
 
-## Intro
+# Intro
 
 Initial visualizations for the PTPA Task Force and their 2024 IAAO Presentation.
 
-## Survey Questions Visualized
-### General Topics
+# Survey Questions Visualized
+## General Topics
 
 
 
@@ -71,7 +71,7 @@ questions <- unique(ptpa23$question_desc)
 
 ```
 
-#### Question 11
+### Question 11
 
 ```{r echo = F}
 q11 <- ptpa23 %>% filter(question_num == 11 & response != 'NA')
@@ -79,9 +79,9 @@ title <- q11$question_desc
 ggplot2::ggplot(q11, aes(y=sub_question)) + ggplot2::geom_bar(aes(y=response)) + theme_minimal() + labs(title = title, y = '') 
 ```
 
-### Education
+## Education
 
-#### Question 20
+### Question 20
 Question 20 asked respondents "`r stringr::str_to_lower(questions[20])`" educational or other achievements.
 
 **temp-for data aggregation only** Non-interactive Style, No Country Group:
@@ -104,9 +104,9 @@ plotly::plot_ly(data = q20, y = ~sub_question, color = ~intlGrp, type = 'histogr
 ```
 
 
-### Valuation
+## Valuation
 
-#### Question 25
+### Question 25
 ```{r echo = F}
 q25 <- ptpa23 %>% filter(question_num == 25 & sub_question_id == 1 & response != 'NA') %>% group_by(intlGrp, sub_question, response) %>% summarize(n=n()) %>% data.frame() %>% filter(!is.na(response))
 q25title = questions[25]
@@ -117,15 +117,16 @@ ggplot(data = q25, aes(x = response, y = n, fill = intlGrp)) +
   theme_bw() + labs(title = q25title)
 ```
 
-#### Question 26
+### Question 26
 
 ```{r echo = F}
 q26 <- ptpa23 %>% filter(question_num == 26 & response != 'NA') %>% mutate(cleanResponse = as.numeric(response)) %>% group_by(intlGrp, sub_question, cleanResponse) %>% summarize(n = n()) %>% data.frame() %>% filter(!is.na(cleanResponse))
 DT::datatable(q26)
 ```
 
+## Confidentiality
 
-#### Question 38
+### Question 38
 
 ```{r echo = F}
 q38 <- ptpa23 %>% filter(question_num == 38 & response != 'NA' & sub_question_id == 1) %>% mutate(cleanResponse = dplyr::case_when(
@@ -158,4 +159,55 @@ ggplot(data = filter(q38, q38$intlGrp == 'INTL'), aes(x="", y=n, fill=cleanRespo
   coord_polar("y", start=0) + labs(title = q38title, subtitle = 'INTERNATIONAL - OUTSIDE NORTH AMERICA') + theme_void()
   
   # theme_void() # remove background, grid, numeric labels
+```
+
+## EXEMPTIONS, RELIEF, AND LIMITATIONS
+
+### Question 45
+
+```{r echo = F}
+q45 <- ptpa23 %>% filter(question_num == 45 & response != 'NA' & sub_question_id < 6) %>% mutate(cleanResponse = 1) %>%
+  group_by(intlGrp, sub_question, cleanResponse) %>% summarize(n = n()) %>% data.frame() %>% filter(!is.na(cleanResponse))
+q45title <- questions[45]
+q45subqs <- unique(q45$sub_question)
+
+
+ggplot(data = (q45), aes(x = sub_question, y = n, fill = intlGrp)) + 
+  geom_bar(stat = "identity",  width = 0.4,
+           position=position_dodge(width = 0.5))+
+  theme_bw() + labs(title = q45title) +
+ coord_flip()
+#}
+```
+
+
+
+## MANDATED PROPERTY INSPECTIONS/APPRAISAL CYCLE
+### Question 72
+
+Some clear problems with output, however, this might have just been how they were allowed to answer. Look into this.
+
+```{r echo = F}
+q72 <- ptpa23 %>% filter(question_num == 72 & response != 'NA') %>% 
+  group_by(intlGrp, sub_question, response) %>% summarize(n = n()) %>% data.frame() %>% filter(!is.na(response))
+q72title <- questions[72]
+# q45subqs <- unique(q45$sub_question)
+
+
+ggplot(data = filter(q72, sub_question == 'Locally Assessed'), aes(x = response, y = n, fill = intlGrp)) + 
+  geom_bar(stat = "identity",  width = 0.4,
+           position=position_dodge(width = 0.5))+
+  theme_bw() + labs(title = q72title, subtitle = 'Locally Assessed') + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+ coord_flip()
+
+ggplot(data = filter(q72, sub_question == 'State Assessed'), aes(x = response, y = n, fill = intlGrp)) + 
+  geom_bar(stat = "identity",  width = 0.4,
+           position=position_dodge(width = 0.5))+
+  theme_bw() + labs(title = q72title, subtitle = 'State Assessed') + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+ coord_flip()
+
+ggplot(data = filter(q72, sub_question == 'Other (please type number of years)'), aes(x = response, y = n, fill = intlGrp)) + 
+  geom_bar(stat = "identity",  width = 0.4,
+           position=position_dodge(width = 0.5))+
+  theme_bw() + labs(title = q72title, subtitle = 'Other - messed up right now because we need to clean for # years specifically like we asked for') #+ theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 ```
