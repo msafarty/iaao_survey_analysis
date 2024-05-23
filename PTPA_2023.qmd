@@ -15,7 +15,7 @@ knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 
 ## Intro
 
-Greetings, Earthlings!
+Initial visualizations for the PTPA Task Force and their 2024 IAAO Presentation.
 
 ## Survey Questions Visualized
 ### General Topics
@@ -61,13 +61,13 @@ questions <- unique(ptpa23$question_desc)
 
 #__________________Prep Map Data
 # Reference: https://bookdown.org/alhdzsz/data_viz_ir/maps.html
-world <- rnaturalearth::ne_countries(scale = "small", returnclass = "sf")
+# world <- rnaturalearth::ne_countries(scale = "small", returnclass = "sf")
 ```
 
 ```{r include = F, echo = F}
-world %>%
-  ggplot() + 
-  geom_sf() 
+# world %>%
+#   ggplot() + 
+#   geom_sf() 
 
 ```
 
@@ -107,10 +107,55 @@ plotly::plot_ly(data = q20, y = ~sub_question, color = ~intlGrp, type = 'histogr
 ### Valuation
 
 #### Question 25
+```{r echo = F}
+q25 <- ptpa23 %>% filter(question_num == 25 & sub_question_id == 1 & response != 'NA') %>% group_by(intlGrp, sub_question, response) %>% summarize(n=n()) %>% data.frame() %>% filter(!is.na(response))
+q25title = questions[25]
+
+ggplot(data = q25, aes(x = response, y = n, fill = intlGrp)) + 
+  geom_bar(stat = "identity",  width = 0.4,
+           position=position_dodge(width = 0.5))+
+  theme_bw() + labs(title = q25title)
+```
 
 #### Question 26
 
 ```{r echo = F}
 q26 <- ptpa23 %>% filter(question_num == 26 & response != 'NA') %>% mutate(cleanResponse = as.numeric(response)) %>% group_by(intlGrp, sub_question, cleanResponse) %>% summarize(n = n()) %>% data.frame() %>% filter(!is.na(cleanResponse))
 DT::datatable(q26)
+```
+
+
+#### Question 38
+
+```{r echo = F}
+q38 <- ptpa23 %>% filter(question_num == 38 & response != 'NA' & sub_question_id == 1) %>% mutate(cleanResponse = dplyr::case_when(
+  response == 'No' ~ 'No',
+  T ~ 'Yes')
+) %>% group_by(intlGrp, sub_question, cleanResponse) %>% summarize(n = n()) %>% data.frame() %>% filter(!is.na(cleanResponse))
+q38title <- questions[38]
+
+
+ggplot(data = q38, aes(x = cleanResponse, y = n, fill = intlGrp)) + 
+  geom_bar(stat = "identity",  width = 0.4,
+           position=position_dodge(width = 0.5))+
+  theme_bw() + labs(title = q38title)
+
+
+
+
+
+# Basic piechart
+ggplot(data = filter(q38, q38$intlGrp == 'USA'), aes(x="", y=n, fill=cleanResponse)) +
+  geom_bar(stat="identity", width=1, color="white") +
+  coord_polar("y", start=0) + labs(title = q38title, subtitle = 'USA') + theme_void()
+
+ggplot(data = filter(q38, q38$intlGrp == 'CANADA'), aes(x="", y=n, fill=cleanResponse)) +
+  geom_bar(stat="identity", width=1, color="white") +
+  coord_polar("y", start=0) + labs(title = q38title, subtitle = 'CANADA') + theme_void()
+  
+ggplot(data = filter(q38, q38$intlGrp == 'INTL'), aes(x="", y=n, fill=cleanResponse)) +
+  geom_bar(stat="identity", width=1, color="white") +
+  coord_polar("y", start=0) + labs(title = q38title, subtitle = 'INTERNATIONAL - OUTSIDE NORTH AMERICA') + theme_void()
+  
+  # theme_void() # remove background, grid, numeric labels
 ```
