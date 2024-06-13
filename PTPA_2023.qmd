@@ -79,7 +79,7 @@ q10vis <- ggplot2::ggplot(q10b, aes(y = sub_question, x = proportion, fill = int
 
 q10vis
 
-ggplot2::ggsave("q10.png", plot = q10vis)
+ggplot2::ggsave("q10.jpg", plot = q10vis)
 ```
 
 ### Question 11
@@ -112,7 +112,7 @@ q13vis <- ggplot2::ggplot(filter(q13, sub_question %in% c(q13INTL_ranking$sub_qu
 
 q13vis
 
-ggsave(plot=q13vis, filename='q13.png')
+ggsave(plot=q13vis, filename='q13.jpg')
 ```
 
 
@@ -131,7 +131,7 @@ q15vis <- ggplot2::ggplot(q15, aes(y = sub_question, x = proportion, fill = intl
 
 q15vis
 
-ggsave(plot=q15vis, filename=  'q15.png')
+ggsave(plot=q15vis, filename=  'q15.jpg')
 ```
 
 
@@ -171,7 +171,7 @@ q21vis <- ggplot2::ggplot(q21, aes(y = sub_question, x = proportion, fill = intl
 
 q21vis
 
-ggsave(plot=q21vis,filename='q21.png')
+ggsave(plot=q21vis,filename='q21.jpg')
 ```
 
 ## Valuation
@@ -189,7 +189,7 @@ q22vis <- ggplot2::ggplot(q22, aes(x = response, y = proportion, fill = intlGrp)
 
 q22vis
 
-ggsave(plot=q22vis,filename='q22.png')
+ggsave(plot=q22vis,filename='q22.jpg')
 ```
 
 
@@ -206,7 +206,7 @@ q23vis <- ggplot2::ggplot(q23, aes(x = response, y = proportion, fill = intlGrp)
 
 q23vis
 
-ggsave(plot=q23vis, filename='q23.png')
+ggsave(plot=q23vis, filename='q23.jpg')
 ```
 
 
@@ -237,7 +237,7 @@ q26vis<-ggplot2::ggplot(q26, aes(y = sub_question, x = proportion, fill = intlGr
 
 q26vis
 
-ggplot2::ggsave(filename='q26.png',plot=q26vis)
+ggplot2::ggsave(filename='q26.jpg',plot=q26vis)
 # q26 <- ptpa23 %>% filter(question_num == 26 & response != 'NA') %>% mutate(cleanResponse = as.numeric(response)) %>% group_by(intlGrp, sub_question, cleanResponse) %>% summarize(n = n()) %>% data.frame() %>% filter(!is.na(cleanResponse))
 # DT::datatable(q26)
 ```
@@ -258,7 +258,7 @@ q31vis<-ggplot2::ggplot(q31, aes(y = '', x = proportion, fill = intlGrp)) +
 
 q31vis
 
-ggplot2::ggsave(filename = 'q31.png', plot = q31vis)
+ggplot2::ggsave(filename = 'q31.jpg', plot = q31vis)
 ```
 
 ### Question 34
@@ -275,7 +275,7 @@ q34vis<-ggplot2::ggplot(q34, aes(y = response, x = proportion, fill = intlGrp)) 
 
 q34vis
 
-ggplot2::ggsave(filename='q34.png',plot=q34vis)
+ggplot2::ggsave(filename='q34.jpg',plot=q34vis)
 ```
 
 ## Confidentiality
@@ -293,12 +293,13 @@ q36vis <- ggplot2::ggplot(q36, aes(x = sub_question, y = proportion, fill = intl
   theme_minimal() + labs(title = stringr::str_wrap(title,width=80), x = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20)) 
 q36vis
 
-ggplot2::ggsave(plot = q36vis, filename = 'q36.png')
+ggplot2::ggsave(plot = q36vis, filename = 'q36.jpg')
 
 ```
 
 
 ### Question 38
+
 
 ```{r echo = F}
 # q38 <- ptpa23 %>% filter(question_num == 38 & response != 'NA' & sub_question_id == 1) %>% mutate(cleanResponse = dplyr::case_when(
@@ -320,7 +321,7 @@ q38vis <- ggplot(data = q38, aes(y = '', x = proportion, fill = intlGrp)) +
 
 q38vis
 
-ggplot2::ggsave(plot=q38vis, filename='q38vis.png') 
+ggplot2::ggsave(plot=q38vis, filename='q38vis.jpg') 
 
 
 
