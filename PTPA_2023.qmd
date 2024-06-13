@@ -58,26 +58,73 @@ T ~ 'INTL'))
 
 # Create question vector to dynamically reference in report:
 questions <- unique(ptpa23$question_desc)
-
-#__________________Prep Map Data
-# Reference: https://bookdown.org/alhdzsz/data_viz_ir/maps.html
-# world <- rnaturalearth::ne_countries(scale = "small", returnclass = "sf")
+# Create intlGrp counts to reference later
+intlGrpCounts <- ptpa23 %>% filter(question_num == 3) %>% group_by(intlGrp) %>% summarize(n=n()) 
 ```
 
-```{r include = F, echo = F}
-# world %>%
-#   ggplot() + 
-#   geom_sf() 
+
+### Question 10
+
+```{r echo = F}
+# What we want are Yes/Shared answers per sub question
+# q10 <- ptpa23 %>% filter(question_num == 10 & response %in% c('Yes','Yes,Performed/shared with other agency', 'Performed/shared with other agency') & sub_question_id != 18) %>% group_by(sub_question,jurisdiction_name)
+title <- questions[10]
+# ggplot2::ggplot(q10) + ggplot2::geom_bar(aes(y=sub_question)) + theme_minimal() + labs(title = title, y = '') 
+
+q10b <- ptpa23 %>% filter(question_num == 10 & response %in% c('Yes','Yes,Performed/shared with other agency', 'Performed/shared with other agency') & sub_question_id != 18) %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2)) 
+
+ggplot2::ggplot(q10b, aes(y = sub_question, x = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge")+
+  theme_minimal() + labs(title = title, y = '') 
+
 
 ```
 
 ### Question 11
 
 ```{r echo = F}
-q11 <- ptpa23 %>% filter(question_num == 11 & response != 'NA')
+q11 <- ptpa23 %>% filter(question_num == 11 & response != 'NA' )
 title <- q11$question_desc
 ggplot2::ggplot(q11, aes(y=sub_question)) + ggplot2::geom_bar(aes(y=response)) + theme_minimal() + labs(title = title, y = '') 
 ```
+
+
+### Question 13
+
+```{r echo = F}
+
+# tasked to show 3 – 5 most common industry groups
+# deciding to do top 5 per intlGrp to allow for interesting diversity to be represented
+
+q13 <- ptpa23 %>% filter(question_num == 13 & sub_question_id != 21 & response != '' & !is.na(response)) %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+q13INTL_ranking <- q13 %>% filter(intlGrp == 'INTL') %>% arrange(desc(proportion)) %>% head(4)
+q13CAN_ranking <- q13 %>% filter(intlGrp == 'CANADA') %>% arrange(desc(proportion)) %>% head(4)
+q13USA_ranking <- q13 %>% filter(intlGrp == 'USA') %>% arrange(desc(proportion)) %>% head(4)
+
+title <- questions[13]
+
+ggplot2::ggplot(filter(q13, sub_question %in% c(q13INTL_ranking$sub_question,q13CAN_ranking$sub_question, q13USA_ranking$sub_question)), aes(y = sub_question, x = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge")+
+  theme_minimal() + labs(title = title, subtitle = 'Top 4 Per Country Group', y = '') 
+
+```
+
+
+```{r echo = F}
+# q15 <- ptpa23 %>% filter(question_num == 15 & sub_question_id %in% c(1,2,4) & !is.na(response)) %>% group_by(jurisdiction_name, sub_question)
+
+q15 <- ptpa23 %>% filter(question_num == 15 & sub_question_id %in% c(1,2,4) & 
+                           response != '' & !is.na(response)
+                           ) %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+title <- questions[15]
+
+ggplot2::ggplot(q15, aes(y = sub_question, x = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge")+
+  theme_minimal() + labs(title = title, subtitle = 'Proportions sum to > 1 when more than one method within jurisdiction', y = '') 
+```
+
 
 ## Education
 
@@ -104,7 +151,44 @@ plotly::plot_ly(data = q20, y = ~sub_question, color = ~intlGrp, type = 'histogr
 ```
 
 
+```{r echo =F}
+q21 <- ptpa23 %>% filter(question_num == 21 & sub_question != 'Please specify the type of reference work' & sub_question != 'Other (please specify)' &                            response != '' & !is.na(response)) %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+title <- questions[21]
+
+ggplot2::ggplot(q21, aes(y = sub_question, x = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge")+
+  theme_minimal() + labs(title = title, y = '') 
+```
+
 ## Valuation
+
+### Question 22
+```{r echo=F}
+q22 <- ptpa23 %>% filter(question_num == 22 & sub_question_id == 1 & response != '' & !is.na(response)) %>% group_by(response, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+title <- questions[22]
+
+ggplot2::ggplot(q22, aes(x = response, y = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge")+
+  theme_minimal() + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20)) + # Adjust width as needed
+ labs(title = title, y = '', x = '') 
+```
+
+
+### Question 23
+```{r echo=F}
+q23 <- ptpa23 %>% filter(question_num == 23 & sub_question_id == 1 & response != '' & !is.na(response)) %>% group_by(response, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+title <- questions[23]
+
+ggplot2::ggplot(q23, aes(x = response, y = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge")+
+  theme_minimal() + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20)) +
+ labs(title = title, y = '', x = '') 
+```
+
+
 
 ### Question 25
 ```{r echo = F}
@@ -120,11 +204,65 @@ ggplot(data = q25, aes(x = response, y = n, fill = intlGrp)) +
 ### Question 26
 
 ```{r echo = F}
-q26 <- ptpa23 %>% filter(question_num == 26 & response != 'NA') %>% mutate(cleanResponse = as.numeric(response)) %>% group_by(intlGrp, sub_question, cleanResponse) %>% summarize(n = n()) %>% data.frame() %>% filter(!is.na(cleanResponse))
-DT::datatable(q26)
+
+q26 <- ptpa23 %>% filter(question_num == 26 & response != '' & !is.na(response)) %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2)) %>% mutate(sub_question = case_when(sub_question == 'Incentivized properties (whether commercial, industrial, or other)' ~ 'Incentivized properties',
+                                  T ~ sub_question))
+
+title <- questions[26]
+
+ggplot2::ggplot(q26, aes(y = sub_question, x = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +  labs(title = 'Are There Statutory Fractional Assessment Levels For..?', y = '') 
+
+# q26 <- ptpa23 %>% filter(question_num == 26 & response != 'NA') %>% mutate(cleanResponse = as.numeric(response)) %>% group_by(intlGrp, sub_question, cleanResponse) %>% summarize(n = n()) %>% data.frame() %>% filter(!is.na(cleanResponse))
+# DT::datatable(q26)
+```
+
+
+### Question 31
+
+```{r echo = F}
+
+q31 <- ptpa23 %>% filter(question_num == 31  & response == 'Yes (please describe the fee)') %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+title <- questions[31]
+
+
+ggplot2::ggplot(q31, aes(y = '', x = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +  labs(title = title, y = 'Yes') 
+```
+
+### Question 34
+
+```{r echo=F}
+# decided to keep potential answers to both sub_question 1 and 2 counting
+q34 <- ptpa23 %>% filter(question_num == 34 & sub_question_id != 3 & response != '' & !is.na(response)) %>% group_by(response, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+title <- questions[34]
+
+ggplot2::ggplot(q34, aes(y = response, x = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() + labs(title = stringr::str_wrap(title,width=80)) 
+
 ```
 
 ## Confidentiality
+
+### Question 36
+
+```{r echo=F}
+# decided to keep potential answers to both sub_question 1 and 2 counting
+q36 <- ptpa23 %>% filter(question_num == 36 & sub_question_id != 5 & response == 'Yes') %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+title <- questions[36]
+
+ggplot2::ggplot(q36, aes(x = sub_question, y = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() + labs(title = stringr::str_wrap(title,width=80), x = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20)) 
+
+```
+
 
 ### Question 38
 
