@@ -73,11 +73,13 @@ title <- questions[10]
 
 q10b <- ptpa23 %>% filter(question_num == 10 & response %in% c('Yes','Yes,Performed/shared with other agency', 'Performed/shared with other agency') & sub_question_id != 18) %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2)) 
 
-ggplot2::ggplot(q10b, aes(y = sub_question, x = proportion, fill = intlGrp)) +
+q10vis <- ggplot2::ggplot(q10b, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
   theme_minimal() + labs(title = title, y = '') 
 
+q10vis
 
+ggplot2::ggsave("q10.png", plot = q10vis)
 ```
 
 ### Question 11
@@ -104,10 +106,13 @@ q13USA_ranking <- q13 %>% filter(intlGrp == 'USA') %>% arrange(desc(proportion))
 
 title <- questions[13]
 
-ggplot2::ggplot(filter(q13, sub_question %in% c(q13INTL_ranking$sub_question,q13CAN_ranking$sub_question, q13USA_ranking$sub_question)), aes(y = sub_question, x = proportion, fill = intlGrp)) +
+q13vis <- ggplot2::ggplot(filter(q13, sub_question %in% c(q13INTL_ranking$sub_question,q13CAN_ranking$sub_question, q13USA_ranking$sub_question)), aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
   theme_minimal() + labs(title = title, subtitle = 'Top 4 Per Country Group', y = '') 
 
+q13vis
+
+ggsave(plot=q13vis, filename='q13.png')
 ```
 
 
@@ -120,9 +125,13 @@ q15 <- ptpa23 %>% filter(question_num == 15 & sub_question_id %in% c(1,2,4) &
 
 title <- questions[15]
 
-ggplot2::ggplot(q15, aes(y = sub_question, x = proportion, fill = intlGrp)) +
+q15vis <- ggplot2::ggplot(q15, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
   theme_minimal() + labs(title = title, subtitle = 'Proportions sum to > 1 when more than one method within jurisdiction', y = '') 
+
+q15vis
+
+ggsave(plot=q15vis, filename=  'q15.png')
 ```
 
 
@@ -156,9 +165,13 @@ q21 <- ptpa23 %>% filter(question_num == 21 & sub_question != 'Please specify th
 
 title <- questions[21]
 
-ggplot2::ggplot(q21, aes(y = sub_question, x = proportion, fill = intlGrp)) +
+q21vis <- ggplot2::ggplot(q21, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_minimal() + labs(title = title, y = '') 
+  theme_minimal() + labs(title = stringr::str_wrap('Indicate which of the following types of reference materials your agency provides to assessors and other users',width=80), y = '') 
+
+q21vis
+
+ggsave(plot=q21vis,filename='q21.png')
 ```
 
 ## Valuation
@@ -169,10 +182,14 @@ q22 <- ptpa23 %>% filter(question_num == 22 & sub_question_id == 1 & response !=
 
 title <- questions[22]
 
-ggplot2::ggplot(q22, aes(x = response, y = proportion, fill = intlGrp)) +
+q22vis <- ggplot2::ggplot(q22, aes(x = response, y = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
   theme_minimal() + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20)) + # Adjust width as needed
  labs(title = title, y = '', x = '') 
+
+q22vis
+
+ggsave(plot=q22vis,filename='q22.png')
 ```
 
 
@@ -182,10 +199,14 @@ q23 <- ptpa23 %>% filter(question_num == 23 & sub_question_id == 1 & response !=
 
 title <- questions[23]
 
-ggplot2::ggplot(q23, aes(x = response, y = proportion, fill = intlGrp)) +
+q23vis <- ggplot2::ggplot(q23, aes(x = response, y = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
   theme_minimal() + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20)) +
  labs(title = title, y = '', x = '') 
+
+q23vis
+
+ggsave(plot=q23vis, filename='q23.png')
 ```
 
 
@@ -210,10 +231,13 @@ q26 <- ptpa23 %>% filter(question_num == 26 & response != '' & !is.na(response))
 
 title <- questions[26]
 
-ggplot2::ggplot(q26, aes(y = sub_question, x = proportion, fill = intlGrp)) +
+q26vis<-ggplot2::ggplot(q26, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_minimal() +  labs(title = 'Are There Statutory Fractional Assessment Levels For..?', y = '') 
+  theme_minimal() +  labs(title = 'Are There Statutory Fractional Assessment Levels For:', y = '') 
 
+q26vis
+
+ggplot2::ggsave(filename='q26.png',plot=q26vis)
 # q26 <- ptpa23 %>% filter(question_num == 26 & response != 'NA') %>% mutate(cleanResponse = as.numeric(response)) %>% group_by(intlGrp, sub_question, cleanResponse) %>% summarize(n = n()) %>% data.frame() %>% filter(!is.na(cleanResponse))
 # DT::datatable(q26)
 ```
@@ -228,9 +252,13 @@ q31 <- ptpa23 %>% filter(question_num == 31  & response == 'Yes (please describe
 title <- questions[31]
 
 
-ggplot2::ggplot(q31, aes(y = '', x = proportion, fill = intlGrp)) +
+q31vis<-ggplot2::ggplot(q31, aes(y = '', x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
   theme_minimal() +  labs(title = title, y = 'Yes') 
+
+q31vis
+
+ggplot2::ggsave(filename = 'q31.png', plot = q31vis)
 ```
 
 ### Question 34
@@ -241,10 +269,13 @@ q34 <- ptpa23 %>% filter(question_num == 34 & sub_question_id != 3 & response !=
 
 title <- questions[34]
 
-ggplot2::ggplot(q34, aes(y = response, x = proportion, fill = intlGrp)) +
+q34vis<-ggplot2::ggplot(q34, aes(y = response, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
   theme_minimal() + labs(title = stringr::str_wrap(title,width=80)) 
 
+q34vis
+
+ggplot2::ggsave(filename='q34.png',plot=q34vis)
 ```
 
 ## Confidentiality
@@ -257,9 +288,12 @@ q36 <- ptpa23 %>% filter(question_num == 36 & sub_question_id != 5 & response ==
 
 title <- questions[36]
 
-ggplot2::ggplot(q36, aes(x = sub_question, y = proportion, fill = intlGrp)) +
+q36vis <- ggplot2::ggplot(q36, aes(x = sub_question, y = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
   theme_minimal() + labs(title = stringr::str_wrap(title,width=80), x = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20)) 
+q36vis
+
+ggplot2::ggsave(plot = q36vis, filename = 'q36.png')
 
 ```
 
@@ -267,35 +301,44 @@ ggplot2::ggplot(q36, aes(x = sub_question, y = proportion, fill = intlGrp)) +
 ### Question 38
 
 ```{r echo = F}
-q38 <- ptpa23 %>% filter(question_num == 38 & response != 'NA' & sub_question_id == 1) %>% mutate(cleanResponse = dplyr::case_when(
-  response == 'No' ~ 'No',
-  T ~ 'Yes')
-) %>% group_by(intlGrp, sub_question, cleanResponse) %>% summarize(n = n()) %>% data.frame() %>% filter(!is.na(cleanResponse))
-q38title <- questions[38]
+# q38 <- ptpa23 %>% filter(question_num == 38 & response != 'NA' & sub_question_id == 1) %>% mutate(cleanResponse = dplyr::case_when(
+#   response == 'No' ~ 'No',
+#   T ~ 'Yes')
+# ) %>% group_by(intlGrp, sub_question, cleanResponse) %>% summarize(n = n()) %>% data.frame() %>% filter(!is.na(cleanResponse))
+# q38title <- questions[38]
 
 
-ggplot(data = q38, aes(x = cleanResponse, y = n, fill = intlGrp)) + 
+q38totalYesNo <- ptpa23 %>% filter(question_num == 38 & sub_question_id == 1 & response %in% c('Yes (please describe, and cite relevant legislation if possible)', 'No')) %>% group_by(intlGrp) %>% summarize(n=n())
+
+q38 <- ptpa23 %>% filter(question_num == 38 & sub_question_id == 1 & response == 'Yes (please describe, and cite relevant legislation if possible)') %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(q38totalYesNo, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+
+q38vis <- ggplot(data = q38, aes(y = '', x = proportion, fill = intlGrp)) + 
   geom_bar(stat = "identity",  width = 0.4,
            position=position_dodge(width = 0.5))+
-  theme_bw() + labs(title = q38title)
+  theme_bw() + labs(title = q38title, y='Yes') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 8, position = position_dodge(width = 0.5))
+
+q38vis
+
+ggplot2::ggsave(plot=q38vis, filename='q38vis.png') 
 
 
 
 
-
-# Basic piechart
-ggplot(data = filter(q38, q38$intlGrp == 'USA'), aes(x="", y=n, fill=cleanResponse)) +
-  geom_bar(stat="identity", width=1, color="white") +
-  coord_polar("y", start=0) + labs(title = q38title, subtitle = 'USA') + theme_void()
-
-ggplot(data = filter(q38, q38$intlGrp == 'CANADA'), aes(x="", y=n, fill=cleanResponse)) +
-  geom_bar(stat="identity", width=1, color="white") +
-  coord_polar("y", start=0) + labs(title = q38title, subtitle = 'CANADA') + theme_void()
-  
-ggplot(data = filter(q38, q38$intlGrp == 'INTL'), aes(x="", y=n, fill=cleanResponse)) +
-  geom_bar(stat="identity", width=1, color="white") +
-  coord_polar("y", start=0) + labs(title = q38title, subtitle = 'INTERNATIONAL - OUTSIDE NORTH AMERICA') + theme_void()
-  
+# 
+# # Basic piechart
+# ggplot(data = filter(q38, q38$intlGrp == 'USA'), aes(x="", y=n, fill=cleanResponse)) +
+#   geom_bar(stat="identity", width=1, color="white") +
+#   coord_polar("y", start=0) + labs(title = q38title, subtitle = 'USA') + theme_void()
+# 
+# ggplot(data = filter(q38, q38$intlGrp == 'CANADA'), aes(x="", y=n, fill=cleanResponse)) +
+#   geom_bar(stat="identity", width=1, color="white") +
+#   coord_polar("y", start=0) + labs(title = q38title, subtitle = 'CANADA') + theme_void()
+#   
+# ggplot(data = filter(q38, q38$intlGrp == 'INTL'), aes(x="", y=n, fill=cleanResponse)) +
+#   geom_bar(stat="identity", width=1, color="white") +
+#   coord_polar("y", start=0) + labs(title = q38title, subtitle = 'INTERNATIONAL - OUTSIDE NORTH AMERICA') + theme_void()
+#   
   # theme_void() # remove background, grid, numeric labels
 ```
 
