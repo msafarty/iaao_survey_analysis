@@ -75,7 +75,8 @@ q10b <- ptpa23 %>% filter(question_num == 10 & response %in% c('Yes','Yes,Perfor
 
 q10vis <- ggplot2::ggplot(q10b, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_minimal() + labs(title = title, y = '') 
+  theme_minimal() + labs(title = title, y = '')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 3.5,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 0.5) +   scale_x_continuous(labels = scales::percent_format())
+
 
 q10vis
 
@@ -108,7 +109,7 @@ title <- questions[13]
 
 q13vis <- ggplot2::ggplot(filter(q13, sub_question %in% c(q13INTL_ranking$sub_question,q13CAN_ranking$sub_question, q13USA_ranking$sub_question)), aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_minimal() + labs(title = title, subtitle = 'Top 4 Per Country Group', y = '') 
+  theme_minimal() + labs(title = title, subtitle = 'Top 4 Per Country Group', y = '')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 5,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 0.5) +   scale_x_continuous(labels = scales::percent_format())
 
 q13vis
 
@@ -127,7 +128,7 @@ title <- questions[15]
 
 q15vis <- ggplot2::ggplot(q15, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_minimal() + labs(title = title, subtitle = 'Proportions sum to > 1 when more than one method within jurisdiction', y = '') 
+  theme_bw() + labs(title = title, subtitle = 'Proportions sum to > 1 when more than one method within jurisdiction', y = '')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 7,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 0.5) +   scale_x_continuous(labels = scales::percent_format())
 
 q15vis
 
@@ -167,7 +168,7 @@ title <- questions[21]
 
 q21vis <- ggplot2::ggplot(q21, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_minimal() + labs(title = stringr::str_wrap('Indicate which of the following types of reference materials your agency provides to assessors and other users',width=80), y = '') 
+  theme_minimal() + labs(title = stringr::str_wrap('Indicate which of the following types of reference materials your agency provides to assessors and other users',width=80), y = '')  +   scale_x_continuous(labels = scales::percent_format())
 
 q21vis
 
@@ -185,7 +186,7 @@ title <- questions[22]
 q22vis <- ggplot2::ggplot(q22, aes(x = response, y = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
   theme_minimal() + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20)) + # Adjust width as needed
- labs(title = title, y = '', x = '') 
+ labs(title = title, y = '', x = '')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 5,position = position_dodge(width = 0.9), vjust = 0.5) +   scale_y_continuous(labels = scales::percent_format())
 
 q22vis
 
@@ -202,7 +203,7 @@ title <- questions[23]
 q23vis <- ggplot2::ggplot(q23, aes(x = response, y = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
   theme_minimal() + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20)) +
- labs(title = title, y = '', x = '') 
+ labs(title = title, y = '', x = '')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 7,position = position_dodge(width = 0.9), vjust = 0.5) +   scale_y_continuous(labels = scales::percent_format())
 
 q23vis
 
@@ -233,7 +234,7 @@ title <- questions[26]
 
 q26vis<-ggplot2::ggplot(q26, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_minimal() +  labs(title = 'Are There Statutory Fractional Assessment Levels For:', y = '') 
+  theme_bw() +  labs(title = 'Are There Statutory Fractional Assessment Levels For:', y = '') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format())
 
 q26vis
 
@@ -254,7 +255,7 @@ title <- questions[31]
 
 q31vis<-ggplot2::ggplot(q31, aes(y = '', x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_minimal() +  labs(title = title, y = 'Yes') 
+  theme_minimal() +  labs(title = title, y = 'Yes') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 7,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.25) +   scale_x_continuous(labels = scales::percent_format())
 
 q31vis
 
@@ -271,7 +272,7 @@ title <- questions[34]
 
 q34vis<-ggplot2::ggplot(q34, aes(y = response, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_minimal() + labs(title = stringr::str_wrap(title,width=80)) 
+  theme_minimal() + labs(title = stringr::str_wrap(title,width=80))  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 5,position = position_dodge(width = 0.9), hjust = 1.25) +   scale_x_continuous(labels = scales::percent_format())
 
 q34vis
 
@@ -290,7 +291,8 @@ title <- questions[36]
 
 q36vis <- ggplot2::ggplot(q36, aes(x = sub_question, y = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_minimal() + labs(title = stringr::str_wrap(title,width=80), x = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20)) 
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +   scale_y_continuous(labels = scales::percent_format())
+
 q36vis
 
 ggplot2::ggsave(plot = q36vis, filename = 'q36.jpg')
@@ -317,7 +319,7 @@ q38 <- ptpa23 %>% filter(question_num == 38 & sub_question_id == 1 & response ==
 q38vis <- ggplot(data = q38, aes(y = '', x = proportion, fill = intlGrp)) + 
   geom_bar(stat = "identity",  width = 0.4,
            position=position_dodge(width = 0.5))+
-  theme_bw() + labs(title = q38title, y='Yes') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 8, position = position_dodge(width = 0.5))
+  theme_bw() + labs(title = q38title, y='Yes') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 8, position = position_dodge(width = 0.5),hjust = 1.25) +   scale_x_continuous(labels = scales::percent_format())
 
 q38vis
 
