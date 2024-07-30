@@ -42,8 +42,16 @@ library(geojsonio)
 # Grab histogram generator function
 source('functions.R', local = T) 
 #__________________Ingest, Clean, Create
-# Get PTPA 2023 response data
-ptpa23 <- read.csv('analysisData.csv')
+# Get PTPA 2023 response data, with missing 2023 responses replaced with 2017 responses when applicable and appropriate
+ptpa23 <- read.csv('analysisDataMerged_20240728.csv') #20240728 has 40094 records and there are some duplicate respones for matches attempted in q62 subQ 3. However, this is not a question for analysis. Leaving alone and fixing later.
+  # read.csv('analysisData.csv')
+mismatches <- read.csv('vetted_mismatches.csv')
+# Get PTPA 2017 response data, with flagged mismatches
+
+# Create question vector to dynamically reference in report:
+questions <- ptpa23 %>% dplyr::select(question_num, question_desc) %>% dplyr::arrange((question_num)) %>% unique() %>% dplyr::select(question_desc) 
+questions <- questions[['question_desc']]
+questions[25] <- 'For newly constructed structures, is there an occupancy requirement for the improvement to be taxable?'
 
 # Can eventually get this from dbo.jurisdictions
 ptpa23 <- ptpa23 %>% dplyr::mutate(intlGrp = dplyr::case_when(
@@ -51,15 +59,57 @@ ptpa23 <- ptpa23 %>% dplyr::mutate(intlGrp = dplyr::case_when(
  'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky',
  'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan', 'Minnesota',
  'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey', 'New Mexico', 'New York', 'North Carolina', 'North Dakota',
- 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming'
+ 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming', 'Washington, D.C.'
 ) ~ 'USA',
 jurisdiction_name %in% c('Prince Edward Island', 'Newfoundland and Labrador','Quebec','Yukon','Alberta','British Columbia', 'Manitoba', 'New Brunswick','Northwest Territories', 'Ontario', 'Saskatchewan') ~ 'CANADA',
 T ~ 'INTL'))
 
-# Create question vector to dynamically reference in report:
-questions <- unique(ptpa23$question_desc)
+# Can remove this on runs after 7/28/2024 - created this field to sniff out any potential duplications (Q62)
+ptpa23 <- ptpa23 %>% dplyr::select(-c(FAKE_ID))
+ptpa23 <- ptpa23 %>% dplyr::mutate(questionnaire_name = dplyr::case_when(questionnaire_name == 'PTPA' ~ 'PTPA',
+                                                                         T ~ 'PTPA'))
+
 # Create intlGrp counts to reference later
 intlGrpCounts <- ptpa23 %>% filter(question_num == 3) %>% group_by(intlGrp) %>% summarize(n=n()) 
+
+
+
+# Can eventually get this from dbo.jurisdictions
+mismatches <- mismatches %>% dplyr::mutate(intlGrp = dplyr::case_when(
+  cross_survey_id < 53 ~ 'USA',
+  T ~ 'CANADA'))
+
+# Proportions should come from the same people that responded in 2023
+respondents2017 <- unique(ptpa23$cross_survey_id) %>% data.frame() %>% rename("ID" = ".") %>% dplyr::filter(ID<66) %>% mutate(intlGrp = case_when(
+  ID < 53 ~ 'USA', 
+  T ~ 'CANADA'
+))
+intlGrpCounts2 <- respondents2017 %>% group_by(intlGrp) %>% summarize(n=n()) 
+
+
+
+
+
+
+
+
+
+
+# Get PTAPP 2017 response data for matched questions. 
+## If there is an NA response for the matched question in 2023, we will use the 2017 non-NA response. Assuming NA is a true blank and not a "No" in 2023
+# ptpamatches <- read.csv('PTPA_2023_vs_2017.csv') %>% dplyr::filter(DIFFERENT_RESPONSES == 1 & X2017_NOT_NA == 1 & QNUM_2023 %in% c(10,13,15,21,22,23,26,31,34,36,38,40,42,44,44,54,55,60,61,65,69,69,70,71,72,73,75,47,49,51)) %>% rename(question_num = QNUM_2023) %>% rename(category_desc = CATEGORY_2023) %>% rename(sub_question = SUB_QUESTION_2023)
+# 
+# ptpa_merged <- ptpa23 %>% dplyr::left_join(ptpamatches, by = c('question_num', 'jurisdiction_name', 'sub_question', 'category_desc')) %>% dplyr::filter(question_num %in% c(10,13,15,21,22,23,26,31,34,36,38,40,42,44,44,54,55,60,61,65,69,69,70,71,72,73,75,47,49,51)) %>% dplyr::filter(cross_survey_id != 12) #no jurisdiction id in 2023 dataset currently, kauai only did 2017, filter them out so the only hawaii reported is maui which was a respondent for both surveys
+# ptpa_merged$response <- ifelse((is.na(ptpatest$response) | ptpatest$response == 'NA' | ptpatest$response == '') & !is.na(ptpatest$matched_question_num), ptpatest$RESPONSE_2017, ptpatest$response)
+
+
+```
+
+### Respondents
+```{r echo = F}
+respondents <- ptpa23 %>% dplyr::mutate(newFor2023 = dplyr::case_when(cross_survey_id > 65 ~ 'YES',                                                                    T ~ 'NO')) %>% dplyr::select(c(intlGrp, jurisdiction_name, newFor2023)) %>% unique() %>% dplyr::arrange(intlGrp)
+
+write.csv(respondents, 'dataProd/respondentsInAnalysis.csv', row.names=F)
 ```
 
 
@@ -71,16 +121,53 @@ intlGrpCounts <- ptpa23 %>% filter(question_num == 3) %>% group_by(intlGrp) %>% 
 title <- questions[10]
 # ggplot2::ggplot(q10) + ggplot2::geom_bar(aes(y=sub_question)) + theme_minimal() + labs(title = title, y = '') 
 
-q10b <- ptpa23 %>% filter(question_num == 10 & response %in% c('Yes','Yes,Performed/shared with other agency', 'Performed/shared with other agency') & sub_question_id != 18) %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2)) 
+q10_proportions <- ptpa23 %>% filter(question_num == 10 & !(response_merged %in% c('NULL','NA','N/A')) & !is.na(response_merged) & sub_question_id != 18) %>% group_by(sub_question, intlGrp) %>% summarize(n = n())
 
-q10vis <- ggplot2::ggplot(q10b, aes(y = sub_question, x = proportion, fill = intlGrp)) +
+q10 <- ptpa23 %>% filter(question_num == 10 & response_merged %in% c('Yes','Yes,Performed/shared with other agency', 'Performed/shared with other agency') & sub_question_id != 18) %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(q10_proportions, by = c('intlGrp', 'sub_question')) %>% mutate(proportion = round(n.x/n.y,2))  
+
+q10a <- q10 %>% dplyr::filter(sub_question %in% c('Approve roll', 'Certify revaluation', 'Conduct equalization studies', 'Conduct statewide assessment', 'Credentialing', 'Education', 'Have authority for direct equalization', 'Have authority for indirect equalization', 'Have authority to compel reassessments'))
+q10b <- q10 %>% dplyr::filter(!(sub_question %in% c('Approve roll', 'Certify revaluation', 'Conduct equalization studies', 'Conduct statewide assessment', 'Credentialing', 'Education', 'Have authority for direct equalization', 'Have authority for indirect equalization', 'Have authority to compel reassessments')))
+
+
+q10visa <- ggplot2::ggplot(q10a, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_minimal() + labs(title = title, y = '')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 3.5,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 0.5) +   scale_x_continuous(labels = scales::percent_format())
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = '', y = 'Roles and Authorities', subtitle = 'First Set of Roles and Authorities')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 3.5,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.5) + theme(axis.text.x = element_blank()) + labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25))
+
+q10visb <- ggplot2::ggplot(q10b, aes(y = sub_question, x = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = '', y = 'Roles and Authorities', subtitle = 'Second Set of Roles and Authorities')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 3.5,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.5) +  theme(axis.text.x = element_blank()) +  labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25))
+
+q10visa
+q10visb
+
+ggplot2::ggsave("visProd/q10/q10a.jpg", plot = q10visa)
+ggplot2::ggsave("visProd/q10/q10b.jpg", plot = q10visb)
 
 
-q10vis
 
-ggplot2::ggsave("q10.jpg", plot = q10vis)
+
+q10mismatches <- mismatches %>% filter(question_num == 10)  %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts2, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2)) 
+
+q10c <- q10mismatches %>% dplyr::filter(sub_question %in% c('Approve roll', 'Certify revaluation', 'Conduct equalization studies', 'Conduct statewide assessment', 'Credentialing', 'Education', 'Have authority for direct equalization', 'Have authority for indirect equalization', 'Have authority to compel reassessments'))
+
+# q10visc <- ggplot2::ggplot(q10c, aes(y = sub_question, x = proportion, fill = intlGrp)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = 'Mismatching Answers', x = 'Percentage', y = 'Method')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 3.5,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) + labs(fill='Country Group') 
+# q10visc
+
+
+q10d <- q10mismatches %>% dplyr::filter(!(sub_question %in% c('Approve roll', 'Certify revaluation', 'Conduct equalization studies', 'Conduct statewide assessment', 'Credentialing', 'Education', 'Have authority for direct equalization', 'Have authority for indirect equalization', 'Have authority to compel reassessments')))
+
+# q10visd <- ggplot2::ggplot(q10d, aes(y = sub_question, x = proportion, fill = intlGrp)) +
+  # geom_bar(stat = "identity", position = "dodge") +
+  # theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = 'Percentage', y = 'Method')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 3.5,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) + labs(fill='Country Group') 
+# q10visd
+
+# ggplot2::ggsave("visProd/q10c.jpg", plot = q10visc)
+# ggplot2::ggsave("visProd/q10d.jpg", plot = q10visd)
+write.csv(q10c,'dataProd/q10c.csv',  row.names=F)
+write.csv(q10d,'dataProd/q10d.csv',  row.names=F)
+
 ```
 
 ### Question 11
@@ -99,146 +186,263 @@ ggplot2::ggplot(q11, aes(y=sub_question)) + ggplot2::geom_bar(aes(y=response)) +
 # tasked to show 3 – 5 most common industry groups
 # deciding to do top 5 per intlGrp to allow for interesting diversity to be represented
 
-q13 <- ptpa23 %>% filter(question_num == 13 & sub_question_id != 21 & response != '' & !is.na(response)) %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+#leave proportions using total # of respondents, since leaving everything unchecked could just mean that nothing asked is centrally assessed
+q13 <- ptpa23 %>% dplyr::filter(question_num == 13 & sub_question_id != 21 & response != '' & !is.na(response)) %>% dplyr::group_by(sub_question, sub_question_id, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(intlGrpCounts, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2)) %>% dplyr::mutate(sub_question = case_when(sub_question == "All are assessed" ~ 'All',T~sub_question))
+q13$sub_question_id <- as.numeric(q13$sub_question_id)
+q13_a <- q13 %>% dplyr::filter(sub_question_id <= 10)
 
-q13INTL_ranking <- q13 %>% filter(intlGrp == 'INTL') %>% arrange(desc(proportion)) %>% head(4)
-q13CAN_ranking <- q13 %>% filter(intlGrp == 'CANADA') %>% arrange(desc(proportion)) %>% head(4)
-q13USA_ranking <- q13 %>% filter(intlGrp == 'USA') %>% arrange(desc(proportion)) %>% head(4)
+q13_b <- q13 %>% dplyr::filter(sub_question_id > 10)
 
 title <- questions[13]
 
-q13vis <- ggplot2::ggplot(filter(q13, sub_question %in% c(q13INTL_ranking$sub_question,q13CAN_ranking$sub_question, q13USA_ranking$sub_question)), aes(y = sub_question, x = proportion, fill = intlGrp)) +
+q13vis_a <- ggplot2::ggplot(q13_a, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_minimal() + labs(title = title, subtitle = 'Top 4 Per Country Group', y = '')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 5,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 0.5) +   scale_x_continuous(labels = scales::percent_format())
+  theme_bw() + labs(title = stringr::str_wrap(title,width=65), subtitle = 'Property Set 1 - Assessed as Real, Personal, or Operating', x = '', y = 'Property Type')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group') +  theme(axis.text.x = element_blank()) +  labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25))
 
-q13vis
+q13vis_b <- ggplot2::ggplot(q13_b, aes(y = sub_question, x = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge")+
+  theme_bw() + labs(title = stringr::str_wrap(title,width=65), subtitle = 'Property Set 2 - Assessed as Real, Personal, or Operating', x = '', y = 'Property Type')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group') +  theme(axis.text.x = element_blank()) +  labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25))
 
-ggsave(plot=q13vis, filename='q13.jpg')
+
+q13vis_a
+q13vis_b
+
+ggsave(plot=q13vis_a, filename='visProd/q13/q13_a.jpg')
+ggsave(plot=q13vis_b, filename='visProd/q13/q13_b.jpg')
 ```
 
 
+### Question 15
+
 ```{r echo = F}
-# q15 <- ptpa23 %>% filter(question_num == 15 & sub_question_id %in% c(1,2,4) & !is.na(response)) %>% group_by(jurisdiction_name, sub_question)
+q15_proportions <- ptpa23 %>% dplyr::filter(question_num == 15 & sub_question_id %in% c(1,2,4) & !is.na(response_merged)) %>% dplyr::select(c('jurisdiction_name','intlGrp')) %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n = n())
 
 q15 <- ptpa23 %>% filter(question_num == 15 & sub_question_id %in% c(1,2,4) & 
-                           response != '' & !is.na(response)
-                           ) %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+                           response != '' & !is.na(response_merged)
+                           ) %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(q15_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2)) %>% dplyr::mutate(sub_question = dplyr::case_when(
+                             sub_question == 'Appointed (specify below)' ~ 'Appointed',
+                             T ~ sub_question
+                           ))
 
 title <- questions[15]
 
 q15vis <- ggplot2::ggplot(q15, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_bw() + labs(title = title, subtitle = 'Proportions sum to > 1 when more than one method within jurisdiction', y = '')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 7,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 0.5) +   scale_x_continuous(labels = scales::percent_format())
+  theme_bw() + labs(title = title, x = '', y = 'Method')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 7,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group') +  theme(axis.text.x = element_blank()) +  labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.y = element_text(size = 12))
 
 q15vis
 
-ggsave(plot=q15vis, filename=  'q15.jpg')
+# ggsave(plot=q15vis, filename=  'visProd/q15/q15.jpg')
 ```
 
 
 ## Education
 
+
+### Question 18
+```{r echo=F}
+#18	Role oversight agency in educating	Bar chart, distinction between US, Can and INT
+q18_proportions <- ptpa23 %>% dplyr::filter(question_num == 18 & !is.na(response_merged)) %>% dplyr::select(c('jurisdiction_name','intlGrp')) %>% unique() %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n = n())
+
+q18 <- ptpa23 %>% dplyr::filter(question_num == 18 & !is.na(response_merged) & sub_question != 'Please provide a brief overview.') %>% dplyr::group_by(sub_question, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q18_proportions, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+title = questions[18]
+
+q18vis <- ggplot2::ggplot(q18, aes(y = sub_question, x = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge")+
+  theme_bw() + labs(title = stringr::str_wrap(title,width=50), x = '', y = 'Role')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group') +  theme(axis.text.x = element_blank()) +  labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.y = element_text(size = 12))
+
+q18vis
+ggsave(plot=q18vis, filename=  'visProd/q18/q18.jpg')
+```
+
+
+
+
+### Question 19
+```{r echo=F}
+#18	Role oversight agency in educating	Bar chart, distinction between US, Can and INT
+q19_unique_responses <- ptpa23 %>% dplyr::filter(question_num == 19) %>% dplyr::select(response_merged) %>% unique()
+
+# messed up with the open text answer, not its own sub question. therefore, for the time being, just target these valid responses:
+#Funding provided from state/provincial/national level
+#Funding provided locally
+#Funding provided from state/provincial/national level,Funding provided locally
+#Funding provided from state/provincial/national level,Funding provided locally,Funded through assessor fees
+#Funding provided locally,Funded through assessor fees
+#Funding provided from state/provincial/national level,Funded through assessor fees
+#Funded through assessor fees
+
+q19_proportions_spn <- ptpa23 %>% dplyr::filter(question_num == 19 & sub_question_id == 1 & response_merged %in% c('Funding provided from state/provincial/national level','Funding provided locally','Funding provided from state/provincial/national level,Funding provided locally','Funding provided from state/provincial/national level,Funding provided locally,Funded through assessor fees','Funding provided locally,Funded through assessor fees','Funding provided from state/provincial/national level,Funded through assessor fees','Funded through assessor fees')) %>% dplyr::select(c('jurisdiction_name','intlGrp')) %>% unique() %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n = n())
+
+
+q19_spn1 <- ptpa23 %>% dplyr::filter(question_num == 19 & sub_question_id == 1 & stringr::str_detect(response_merged, 'provincial')==T) %>%
+  dplyr::mutate(response_q19_forVis = 'Funding provided from state/provincial/national level') %>%
+dplyr::group_by(response_q19_forVis, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q19_proportions_spn, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+q19_spn2 <- ptpa23 %>% dplyr::filter(question_num == 19 & sub_question_id == 1 & stringr::str_detect(response_merged, 'locally')==T) %>%
+  dplyr::mutate(response_q19_forVis = 'Funding provided locally') %>%
+dplyr::group_by(response_q19_forVis, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q19_proportions_spn, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+q19_spn3 <- ptpa23 %>% dplyr::filter(question_num == 19 & sub_question_id == 1 & stringr::str_detect(response_merged, 'assessor fees')==T) %>%
+  dplyr::mutate(response_q19_forVis = 'Funded through assessor fees') %>%
+dplyr::group_by(response_q19_forVis, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q19_proportions_spn, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+q19_spn <- rbind(q19_spn1,q19_spn2,q19_spn3)
+#sum proportions > 1 because this question allowed multiple answers (checkboxes) for one sub_question for one jurisdiction. The denominator is just based on total # of unique jurisdictions answering something valid. With no percentage being shown, I don't find this misleading especially with that information being added to subtitle
+
+q19vis_spn <- ggplot2::ggplot(q19_spn, aes(y = response_q19_forVis, x = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge")+
+  theme_bw() + labs(title = stringr::str_wrap('If there is a certification program, how are personnel funded? Specifically: State/Province/National Personnel',width=60), x = '', y = 'Funding Methods', subtitle = 'Respondents could choose multiple methods')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group') +  theme(axis.text.x = element_blank()) +  labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.y = element_text(size = 12))
+
+q19vis_spn
+
+q19_proportions_local <- ptpa23 %>% dplyr::filter(question_num == 19 & sub_question_id == 2 & response_merged %in% c('Funding provided from state/provincial/national level','Funding provided locally','Funding provided from state/provincial/national level,Funding provided locally','Funding provided from state/provincial/national level,Funding provided locally,Funded through assessor fees','Funding provided locally,Funded through assessor fees','Funding provided from state/provincial/national level,Funded through assessor fees','Funded through assessor fees')) %>% dplyr::select(c('jurisdiction_name','intlGrp')) %>% unique() %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n = n())
+
+q19_local1 <- ptpa23 %>% dplyr::filter(question_num == 19 & sub_question_id == 2 & stringr::str_detect(response_merged, 'provincial')==T) %>%
+  dplyr::mutate(response_q19_forVis = 'Funding provided from state/provincial/national level') %>%
+dplyr::group_by(response_q19_forVis, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q19_proportions_local, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+q19_local2 <- ptpa23 %>% dplyr::filter(question_num == 19 & sub_question_id == 2 & stringr::str_detect(response_merged, 'locally')==T) %>%
+  dplyr::mutate(response_q19_forVis = 'Funding provided locally') %>%
+dplyr::group_by(response_q19_forVis, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q19_proportions_local, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+q19_local3 <- ptpa23 %>% dplyr::filter(question_num == 19 & sub_question_id == 2 & stringr::str_detect(response_merged, 'assessor fees')==T) %>%
+  dplyr::mutate(response_q19_forVis = 'Funded through assessor fees') %>%
+dplyr::group_by(response_q19_forVis, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q19_proportions_local, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+q19_local <- rbind(q19_local1,q19_local2,q19_local3)
+#sum proportions > 1 because this question allowed multiple answers (checkboxes) for one sub_question for one jurisdiction. The denominator is just based on total # of unique jurisdictions answering something valid. With no percentage being shown, I don't find this misleading especially with that information being added to subtitle
+
+q19vis_local <- ggplot2::ggplot(q19_local, aes(y = response_q19_forVis, x = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge")+
+  theme_bw() + labs(title = stringr::str_wrap('If there is a certification program, how are personnel funded? Specifically: Local Personnel',width=60), x = '', y = 'Funding Methods', subtitle = 'Respondents could choose multiple methods')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group') +  theme(axis.text.x = element_blank()) +  labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.y = element_text(size = 12))
+
+q19vis_local
+
+ggsave(plot=q19vis_spn, filename=  'visProd/q19/q19_StateProvincialNational.jpg')
+ggsave(plot=q19vis_local, filename=  'visProd/q19/q19_Local.jpg')
+
+```
+
+
+
 ### Question 20
 Question 20 asked respondents "`r stringr::str_to_lower(questions[20])`" educational or other achievements.
 
-**temp-for data aggregation only** Non-interactive Style, No Country Group:
+```{r echo=F}
+q20_proportions <- ptpa23 %>% dplyr::filter(question_num == 20 & sub_question_id %in% c(1,2,3,4) & !is.na(response_merged)) %>% dplyr::select(c('jurisdiction_name','intlGrp')) %>% unique() %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n = n())
 
-```{r echo = F}
-q20 <- ptpa23 %>% filter(question_num == 20 & response != 'NA' & sub_question_id != 5)
-title <- q20$question_desc
-ggplot2::ggplot(q20, aes(y=sub_question)) + ggplot2::geom_bar(aes(y=response)) + theme_minimal() + labs(title = title, y = '') 
-```
+q20 <- ptpa23 %>% dplyr::filter(question_num == 20 & sub_question_id %in% c(1,2,3,4) & !is.na(response_merged)) %>% dplyr::group_by(response_merged, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q20_proportions, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
 
-**temp-for data aggregation only** Interactive Style with Country Group:
+title = questions[20]
 
-```{r echo = F}
-q20 <- ptpa23 %>% filter(question_num == 20 & response != 'NA' & sub_question_id != 5)
-# q20INTL <- q20 %>% filter(intlGrp == 'INTL')
-# q20USA <- q20 %>% filter(intlGrp == 'USA')
-# q20CANADA <- q20 %>% filter(intlGrp == 'CANADA')
-title <- questions[20]
-plotly::plot_ly(data = q20, y = ~sub_question, color = ~intlGrp, type = 'histogram') %>% plotly::layout(title = title, plot_bgcolor = '#e5ecf6', yaxis = list(title = "achievements"))
+q20vis <- ggplot2::ggplot(q20, aes(y = response_merged, x = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge")+
+  theme_bw() + labs(title = stringr::str_wrap(title,width=65), x = '', y = 'Incentive-Earning Events')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group') +  theme(axis.text.x = element_blank()) +  labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.y = element_text(size = 12))
+
+q20vis
+ggplot2::ggsave(plot=q20vis, filename=  'visProd/q20/q20.jpg')
+
 ```
 
 
+### Question 21
 ```{r echo =F}
-q21 <- ptpa23 %>% filter(question_num == 21 & sub_question != 'Please specify the type of reference work' & sub_question != 'Other (please specify)' &                            response != '' & !is.na(response)) %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+q21_proportions <- ptpa23 %>% dplyr::filter(question_num == 21 & sub_question != 'Please specify the type of reference work' & sub_question != 'Other (please specify)' & !(response_merged %in% c('NULL','NA','')) & !is.na(response_merged)) %>% dplyr::select(c('jurisdiction_name','intlGrp')) %>% unique() %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n = n())
+
+
+q21 <- ptpa23 %>% dplyr::filter(question_num == 21 & sub_question != 'Please specify the type of reference work' & sub_question != 'Other (please specify)' &                            response != '' & !is.na(response)) %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(q21_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
 
 title <- questions[21]
 
 q21vis <- ggplot2::ggplot(q21, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_minimal() + labs(title = stringr::str_wrap('Indicate which of the following types of reference materials your agency provides to assessors and other users',width=80), y = '')  +   scale_x_continuous(labels = scales::percent_format())
+  theme_bw() + labs(title = stringr::str_wrap('Indicate which of the following types of reference materials your agency provides to assessors and other users',width=55), x = '', y = 'Reference Materials')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 3.5,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) + labs(fill = 'Group') + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 30))  +  labs(fill='Group') +  theme(axis.text.x = element_blank()) +  labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.y = element_text(size = 10))
 
 q21vis
 
-ggsave(plot=q21vis,filename='q21.jpg')
+ggsave(plot=q21vis,filename='visProd/q21/q21.jpg')
 ```
 
 ## Valuation
 
 ### Question 22
 ```{r echo=F}
-q22 <- ptpa23 %>% filter(question_num == 22 & sub_question_id == 1 & response != '' & !is.na(response)) %>% group_by(response, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+q22_proportions <-  ptpa23 %>% dplyr::filter(question_num == 22 & sub_question_id == 1 & response != '' & !is.na(response)) %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n=n())
+  
+q22 <- ptpa23 %>% dplyr::filter(question_num == 22 & sub_question_id == 1 & response_merged != '' & !is.na(response_merged)) %>% dplyr::group_by(response_merged, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q22_proportions, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
 
 title <- questions[22]
 
-q22vis <- ggplot2::ggplot(q22, aes(x = response, y = proportion, fill = intlGrp)) +
+q22vis <- ggplot2::ggplot(q22, aes(x = response_merged, y = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_minimal() + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20)) + # Adjust width as needed
- labs(title = title, y = '', x = '')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 5,position = position_dodge(width = 0.9), vjust = 0.5) +   scale_y_continuous(labels = scales::percent_format())
+  theme_bw() + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20)) + # Adjust width as needed
+ labs(title = title, y = '', x = 'Response')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 5,position = position_dodge(width = 0.9), vjust = 1.5) + labs(fill='Group') +  theme(axis.text.y = element_blank()) +  labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.x = element_text(size = 11))
 
 q22vis
 
-ggsave(plot=q22vis,filename='q22.jpg')
+ggsave(plot=q22vis,filename='visProd/q22/q22.jpg')
 ```
 
 
 ### Question 23
 ```{r echo=F}
-q23 <- ptpa23 %>% filter(question_num == 23 & sub_question_id == 1 & response != '' & !is.na(response)) %>% group_by(response, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+#change 4 to 0 in canada, remove canada response. manitoba is assessed with fractional assessment and that's the only valid response per B Guerin
+
+q23_proportions <-  ptpa23 %>% dplyr::filter(question_num == 23 & sub_question_id == 1 & response != '' & !is.na(response)) %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n=n())
+
+q23 <- ptpa23 %>% filter(question_num == 23 & sub_question_id == 1 & response != '' & !is.na(response_merged)) %>% group_by(response_merged, intlGrp) %>% summarize(n = n()) %>% left_join(q23_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
 
 title <- questions[23]
 
-q23vis <- ggplot2::ggplot(q23, aes(x = response, y = proportion, fill = intlGrp)) +
+q23vis <- ggplot2::ggplot(q23, aes(x = response_merged, y = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
   theme_minimal() + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20)) +
- labs(title = title, y = '', x = '')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 7,position = position_dodge(width = 0.9), vjust = 0.5) +   scale_y_continuous(labels = scales::percent_format())
+ labs(title = title, y = '', x = 'Response')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 7,position = position_dodge(width = 0.9), vjust = 1) + scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 18))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.x = element_text(size = 11))
 
 q23vis
 
-ggsave(plot=q23vis, filename='q23.jpg')
+ggsave(plot=q23vis, filename='visProd/q23/q23.jpg')
 ```
 
 
 
 ### Question 25
 ```{r echo = F}
-q25 <- ptpa23 %>% filter(question_num == 25 & sub_question_id == 1 & response != 'NA') %>% group_by(intlGrp, sub_question, response) %>% summarize(n=n()) %>% data.frame() %>% filter(!is.na(response))
+q25 <- ptpa23 %>% filter(question_num == 25 & sub_question_id == 1 & !is.na(response)) %>% group_by(intlGrp, sub_question, response) %>% summarize(n=n()) %>% dplyr::left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2)) 
 q25title = questions[25]
 
-ggplot(data = q25, aes(x = response, y = n, fill = intlGrp)) + 
+q25vis <- ggplot(data = q25, aes(x = response, y = proportion, fill = intlGrp)) + 
   geom_bar(stat = "identity",  width = 0.4,
            position=position_dodge(width = 0.5))+
-  theme_bw() + labs(title = q25title)
+  theme_bw() + labs(title =  stringr::str_wrap(q25title,width=70), subtitle = stringr::str_wrap('Note: Occupancy could mean physical occupancy or a Certificate of Occupancy from a permitting agency',width=70), y = '') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6.5,position = position_dodge(width = 0.5), vjust = 1) +   scale_y_continuous(labels = scales::percent_format())
+
+q25vis 
+
+# ggplot2::ggsave(filename='visProd/q25/q25.jpg',plot=q25vis)
+
 ```
 
 ### Question 26
 
 ```{r echo = F}
+#NA might just mean no fractional assessments, so include NAs. Therefore, intlGrpCounts join is sufficient for the proportion denominator
 
-q26 <- ptpa23 %>% filter(question_num == 26 & response != '' & !is.na(response)) %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2)) %>% mutate(sub_question = case_when(sub_question == 'Incentivized properties (whether commercial, industrial, or other)' ~ 'Incentivized properties',
+q26 <- ptpa23 %>% filter(question_num == 26 & response_merged != '' & !is.na(response_merged)) %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2)) %>% mutate(sub_question = case_when(sub_question == 'Incentivized properties (whether commercial, industrial, or other)' ~ 'Incentivized Properties',
                                   T ~ sub_question))
 
 title <- questions[26]
 
 q26vis<-ggplot2::ggplot(q26, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_bw() +  labs(title = 'Are There Statutory Fractional Assessment Levels For:', y = '') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format())
+  theme_bw() +  labs(title = 'Are There Statutory Fractional Assessment Levels For:', y = 'Property Types', x = '') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.5) + labs(fill = 'Group') + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 18))  + theme(axis.text.x = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.y = element_text(size = 11))
 
 q26vis
 
-ggplot2::ggsave(filename='q26.jpg',plot=q26vis)
+ggplot2::ggsave(filename='visProd/q26/q26.jpg',plot=q26vis)
 # q26 <- ptpa23 %>% filter(question_num == 26 & response != 'NA') %>% mutate(cleanResponse = as.numeric(response)) %>% group_by(intlGrp, sub_question, cleanResponse) %>% summarize(n = n()) %>% data.frame() %>% filter(!is.na(cleanResponse))
 # DT::datatable(q26)
 ```
@@ -247,44 +451,65 @@ ggplot2::ggsave(filename='q26.jpg',plot=q26vis)
 ### Question 31
 
 ```{r echo = F}
+q31_proportions <- ptpa23 %>% dplyr::filter(question_num == 31 & sub_question_id == 1 & !is.na(response_merged) & !(response_merged %in% c('NA','N/A','','NULL'))) %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n=n())
 
-q31 <- ptpa23 %>% filter(question_num == 31  & response == 'Yes (please describe the fee)') %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+q31 <- ptpa23 %>% filter(question_num == 31  & sub_question_id == 1 & response_merged %in% c('No','Yes (please describe the fee)')) %>% group_by(response_merged, intlGrp) %>% summarize(n = n()) %>% left_join(q31_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
 
 title <- questions[31]
 
-
-q31vis<-ggplot2::ggplot(q31, aes(y = '', x = proportion, fill = intlGrp)) +
+q31vis<-ggplot2::ggplot(q31, aes(y = proportion, x = response_merged, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_minimal() +  labs(title = title, y = 'Yes') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 7,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.25) +   scale_x_continuous(labels = scales::percent_format())
+  theme_bw() +  labs(title = title, y = '', x = '') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 12,position = position_dodge(width = 0.9), vjust = 1, hjust = .5) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 18))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.x = element_text(size = 11))
 
 q31vis
 
-ggplot2::ggsave(filename = 'q31.jpg', plot = q31vis)
+ggplot2::ggsave(filename = 'visProd/q31/q31.jpg', plot = q31vis)
 ```
 
 ### Question 34
 
 ```{r echo=F}
 # decided to keep potential answers to both sub_question 1 and 2 counting
-q34 <- ptpa23 %>% filter(question_num == 34 & sub_question_id != 3 & response != '' & !is.na(response)) %>% group_by(response, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+# proportions using denominator of total # jurisdictions answering this question, over sub questions 1/2
+q34_proportions <- ptpa23 %>% dplyr::filter(question_num == 34 & sub_question_id != 3 & response_merged != '' & !is.na(response_merged)) %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n=n())
+
+q34 <- ptpa23 %>% filter(question_num == 34 & sub_question_id != 3 & response_merged != '' & !is.na(response_merged)) %>% group_by(response_merged, intlGrp) %>% summarize(n = n()) %>% left_join(q34_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
 
 title <- questions[34]
 
-q34vis<-ggplot2::ggplot(q34, aes(y = response, x = proportion, fill = intlGrp)) +
+q34vis<-ggplot2::ggplot(q34, aes(y = response_merged, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_minimal() + labs(title = stringr::str_wrap(title,width=80))  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 5,position = position_dodge(width = 0.9), hjust = 1.25) +   scale_x_continuous(labels = scales::percent_format())
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = '', y = 'Average Time')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 5,position = position_dodge(width = 0.9), hjust = 1.25) + labs(fill = 'Group') + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 18))  + theme(axis.text.x = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.y = element_text(size = 11))
+
 
 q34vis
 
-ggplot2::ggsave(filename='q34.jpg',plot=q34vis)
+ggplot2::ggsave(filename='visProd/q34/q34.jpg',plot=q34vis)
 ```
 
 ## Confidentiality
+### Question 35
+```{r echo=F}
+q35_proportions <- ptpa23 %>% dplyr::filter(question_num == 35 & sub_question_id < 5 & !(response_merged %in% c('NA','NULL','','N/A')) & !is.na(response_merged)) %>% dplyr::select(c(intlGrp,jurisdiction_name)) %>% unique() %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n=n())
+
+q35 <- ptpa23 %>% dplyr::filter(question_num == 35 & sub_question_id < 5 & !(response_merged %in% c('NA','NULL','','N/A')) & !is.na(response_merged)) %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(q35_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+title = questions[35]
+
+q35vis<-ggplot2::ggplot(q35, aes(y = sub_question, x = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = 'At Least One Property Class (Real, Personal, Central)', x = '', y = 'Level of Confidentiality/Restricted Records')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 5,position = position_dodge(width = 0.9), hjust = 1.25) + labs(fill = 'Group') + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 20))  + theme(axis.text.x = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.y = element_text(size = 10))
+
+q35vis
+
+ggplot2::ggsave(filename='visProd/q35/q35.jpg',plot=q35vis)
+
+```
 
 ### Question 36
 
 ```{r echo=F}
-# decided to keep potential answers to both sub_question 1 and 2 counting
+# Brian asked not to use q36 - removing from presentation
 q36 <- ptpa23 %>% filter(question_num == 36 & sub_question_id != 5 & response == 'Yes') %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
 
 title <- questions[36]
@@ -295,7 +520,7 @@ q36vis <- ggplot2::ggplot(q36, aes(x = sub_question, y = proportion, fill = intl
 
 q36vis
 
-ggplot2::ggsave(plot = q36vis, filename = 'q36.jpg')
+# ggplot2::ggsave(plot = q36vis, filename = 'q36.jpg')
 
 ```
 
@@ -308,22 +533,23 @@ ggplot2::ggsave(plot = q36vis, filename = 'q36.jpg')
 #   response == 'No' ~ 'No',
 #   T ~ 'Yes')
 # ) %>% group_by(intlGrp, sub_question, cleanResponse) %>% summarize(n = n()) %>% data.frame() %>% filter(!is.na(cleanResponse))
-# q38title <- questions[38]
+
+title <- questions[38]
 
 
-q38totalYesNo <- ptpa23 %>% filter(question_num == 38 & sub_question_id == 1 & response %in% c('Yes (please describe, and cite relevant legislation if possible)', 'No')) %>% group_by(intlGrp) %>% summarize(n=n())
+q38totalYesNo <- ptpa23 %>% filter(question_num == 38 & sub_question_id == 1 & response_merged %in% c('Yes (please describe, and cite relevant legislation if possible)', 'No')) %>% group_by(intlGrp) %>% summarize(n=n())
 
-q38 <- ptpa23 %>% filter(question_num == 38 & sub_question_id == 1 & response == 'Yes (please describe, and cite relevant legislation if possible)') %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(q38totalYesNo, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+q38 <- ptpa23 %>% dplyr::filter(question_num == 38 & sub_question_id == 1 & response_merged %in% c('Yes (please describe, and cite relevant legislation if possible)', 'No')) %>% dplyr::group_by(response_merged, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q38totalYesNo, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2)) %>% dplyr::mutate(response_merged = dplyr::case_when(response_merged == 'Yes (please describe, and cite relevant legislation if possible)' ~ 'Yes', T ~ response_merged ))
 
 
-q38vis <- ggplot(data = q38, aes(y = '', x = proportion, fill = intlGrp)) + 
+q38vis <- ggplot(data = q38, aes(y = response_merged, x = proportion, fill = intlGrp)) + 
   geom_bar(stat = "identity",  width = 0.4,
            position=position_dodge(width = 0.5))+
-  theme_bw() + labs(title = q38title, y='Yes') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 8, position = position_dodge(width = 0.5),hjust = 1.25) +   scale_x_continuous(labels = scales::percent_format())
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), y='Response', x='') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 7, position = position_dodge(width = 0.5),hjust = 1.25, vjust = .45) +  labs(fill = 'Group') + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 20))  + theme(axis.text.x = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.y = element_text(size = 12))
 
 q38vis
 
-ggplot2::ggsave(plot=q38vis, filename='q38vis.jpg') 
+ggplot2::ggsave(plot=q38vis, filename='visProd/q38/q38.jpg')
 
 
 
@@ -345,6 +571,189 @@ ggplot2::ggsave(plot=q38vis, filename='q38vis.jpg')
   # theme_void() # remove background, grid, numeric labels
 ```
 
+
+### Question 39
+```{r echo = F}
+# commented out lines for q39 represent proportions that include No and NA as part of n.y. This `skews` the percentages if they were to be interpreted
+# q39a <- ptpa23 %>% filter(question_num == 39 & sub_question_id < 7 & response_merged != 'None. There is no limit on increases.' & !is.na(response_merged)) %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+# title <- questions[39]
+
+# q39visa <- ggplot2::ggplot(q39a, aes(x = sub_question, y = proportion, fill = intlGrp)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = 'Property Type/Tax Categories', y='')+ #, y = 'Percetange of Jurisdictions Indicating a Limit') + 
+#   geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +   scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+#+ theme(plot.caption = element_text("Numbers in each bar represent the total number of responses for each group/response. The y axis is unlabeled; it exists to standardize the size of each group as the proportion of valid answers to total number of jurisdictions participating in the 2023 PTPA Survey",  size = 3, color = "gray30"))
+
+
+q39testProportions <- ptpa23 %>% filter(question_num == 39 & sub_question_id < 7 & !is.na(response_merged) & !(response_merged %in% c('NA','NULL','N/A'))) %>% group_by(sub_question, intlGrp) %>% summarize(n = n())
+
+q39a <- ptpa23 %>% filter(question_num == 39 & sub_question_id < 7 & response_merged != 'None. There is no limit on increases.' & !is.na(response_merged)) %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(q39testProportions, by = c('intlGrp', 'sub_question')) %>% mutate(proportion = round(n.x/n.y,2))
+
+title <- questions[39]
+
+q39visa <- ggplot2::ggplot(q39a, aes(x = sub_question, y = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = 'Property Type/Tax Categories', y='') + 
+  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +   scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))+ theme(axis.text.y = element_blank())
+
+
+q39visa
+
+q39b <- ptpa23 %>% filter(question_num == 39 & sub_question_id < 7 & response_merged != 'None. There is no limit on increases.' & !is.na(response_merged)) %>% mutate(response_q39b = as.numeric(stringr::str_replace(response_merged, '%', ''))/100)
+
+q39visb <- ggplot2::ggplot() +
+  geom_boxplot(data=q39b, aes(x = sub_question, y = response_q39b), outlier.shape = NA) + 
+  geom_jitter(data=q39b, aes(x = sub_question, y = response_q39b, color = intlGrp, stroke = 1.5), width = 0.2)+
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = 'Property Type/Tax Categories', y = 'Statutory Limit')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 15)) +  labs(color = 'Group') + scale_y_continuous(labels = scales::percent_format()) + scale_color_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+
+q39visb
+#consider 4 variable information?
+
+# ggplot2::ggsave(plot = q36vis, filename = 'q36.jpg')
+
+ggplot2::ggsave(plot = q39visa, filename = 'visProd/q39/q39a.jpg')
+ggplot2::ggsave(plot = q39visb, filename = 'visProd/q39/q39b.jpg')
+```
+
+### Question 40
+```{r echo=F}
+# Need to change formatting of 2017 responses so that it gets counted under correct bucket for 2023 (spelling differences, case sensitivity)
+# Arguably should format proportions based on overall non NA responses, but again, the answers are composed in a way where all situations should be covered and you should be answering
+
+q40_greenEnergyA_proportions <- ptpa23 %>% filter(question_num == 40 & category_id == 17 & sub_question_id %in% c(1) & !is.na(response_merged) & !(response_merged %in% c('NA','NULL','N/A'))) %>% group_by(sub_question, intlGrp) %>% summarize(n = n())
+
+q40_greenEnergyA <- ptpa23 %>% filter(question_num == 40 & category_id == 17 & sub_question_id %in% c(1) & !is.na(response_merged)& !(response_merged %in% c('NA','NULL','N/A')) ) %>% dplyr::mutate(response_merged = dplyr::case_when(response_merged == 'Fully exempt' ~ 'Fully Exempt',
+                                                                                   response_merged == 'Fully taxable' ~ 'Fully Taxable',
+                                                                                   response_merged == 'Partially exempt' ~ 'Partially Exempt',
+                                                                                   T ~ response_merged)) %>% 
+  dplyr::group_by(response_merged, intlGrp) %>% summarize(n = n()) %>% left_join(q40_greenEnergyA_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2)) 
+
+title <- questions[40]
+
+q40visGreenA <- ggplot2::ggplot(q40_greenEnergyA, aes(x = response_merged, y = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_bw() + labs(title = stringr::str_wrap(paste0('2023: ',title),width=80), subtitle = 'Green energy producing property (wind, solar, hydroelectric, geothermal)', x = 'Exemption Status', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +   scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group')  + theme(axis.text.x = element_text(size=12)) + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+q40visGreenA
+
+
+q40_greenEnergyB_proportions <- ptpa23 %>% filter(question_num == 40 & category_id == 17 & sub_question_id %in% c(1) & !is.na(X2017_response) & !(X2017_response %in% c('NA','NULL','N/A'))) %>% group_by(sub_question, intlGrp) %>% summarize(n = n())
+
+
+q40_greenEnergyB <- ptpa23 %>% filter(question_num == 40 & category_id == 17 & sub_question_id %in% c(1) & !is.na(X2017_response) & !(X2017_response %in% c('NULL','NA','','N/A','n/a')))  %>% group_by(X2017_response, intlGrp) %>% summarize(n = n()) %>% left_join(q40_greenEnergyB_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+q40visGreenB <- ggplot2::ggplot(q40_greenEnergyB, aes(x = X2017_response, y = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_bw() + labs(title = stringr::str_wrap(paste0('2017: ',title),width=80), subtitle = 'Green energy producing property (wind, solar, hydroelectric, geothermal)', x = 'Exemption Status', y = '')   + theme(axis.text.x = element_text(size=12)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) + 
+  scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+
+q40visGreenB
+
+
+
+q40_persPropA_proportions <- ptpa23 %>% filter(question_num == 40 & category_id == 21 & sub_question_id %in% c(1) & !is.na(response_merged) & !(response_merged %in% c('NA','NULL','N/A'))) %>% group_by(sub_question, intlGrp) %>% summarize(n = n())
+
+q40_persPropA <- ptpa23 %>% filter(question_num == 40 & category_id %in% c(21) & sub_question_id %in% c(1) & !is.na(response_merged) & !(response_merged %in% c('NULL','NA','','N/A','n/a')))  %>% dplyr::mutate(response_merged = dplyr::case_when(response_merged == 'Fully exempt' ~ 'Fully Exempt',
+                                                                                   response_merged == 'Fully taxable' ~ 'Fully Taxable',
+                                                                                   response_merged == 'Partially exempt' ~ 'Partially Exempt',
+                                                                                   T ~ response_merged)) %>% group_by(response_merged, intlGrp) %>% summarize(n = n()) %>% left_join(q40_persPropA_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+q40visPersPropA <- ggplot2::ggplot(q40_persPropA, aes(x = response_merged, y = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_bw() + labs(title = stringr::str_wrap(paste0('2023: ',title),width=80), subtitle = 'Business personal property, tangible', x = 'Exemption Status', y = '')   + theme(axis.text.x = element_text(size=12)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) + 
+  scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+
+q40visPersPropA
+
+
+
+q40_persPropB_proportions <- ptpa23 %>% filter(question_num == 40 & category_id == 21 & sub_question_id %in% c(1) & !is.na(X2017_response) & !(X2017_response %in% c('NA','NULL','N/A'))) %>% group_by(sub_question, intlGrp) %>% summarize(n = n())
+
+q40_persPropB <- ptpa23 %>% filter(question_num == 40 & category_id %in% c(21) & sub_question_id %in% c(1) & !is.na(X2017_response) & !(X2017_response %in% c('NULL','NA','','N/A','n/a')))  %>% group_by(X2017_response, intlGrp) %>% summarize(n = n()) %>% left_join(q40_persPropB_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+q40visPersPropB <- ggplot2::ggplot(q40_persPropB, aes(x = X2017_response, y = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_bw() + labs(title = stringr::str_wrap(paste0('2017: ',title),width=80), subtitle = 'Business personal property, tangible', x = 'Exemption Status', y = '')   + theme(axis.text.x = element_text(size=12)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) + 
+  scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+q40visPersPropB
+
+
+q40_machineA_proportions <- ptpa23 %>% filter(question_num == 40 & category_id == 22 & sub_question_id %in% c(1) & !is.na(response_merged) & !(response_merged %in% c('NA','NULL','N/A'))) %>% group_by(sub_question, intlGrp) %>% summarize(n = n())
+
+q40_machineA <- ptpa23 %>% filter(question_num == 40 & category_id %in% c(22) & sub_question_id %in% c(1) & !is.na(response_merged) & !(response_merged %in% c('NULL','NA','','N/A','n/a'))) %>% dplyr::mutate(response_merged = dplyr::case_when(response_merged == 'Fully exempt' ~ 'Fully Exempt',
+                                                                                   response_merged == 'Fully taxable' ~ 'Fully Taxable',
+                                                                                   response_merged == 'Partially exempt' ~ 'Partially Exempt',
+                                                                                   T ~ response_merged)) %>% group_by(response_merged, intlGrp) %>% summarize(n = n()) %>% left_join(q40_machineA_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+q40visMachineA <- ggplot2::ggplot(q40_machineA, aes(x = response_merged, y = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_bw() + labs(title = stringr::str_wrap(paste0('2023: ',title),width=80), subtitle = 'Machinery and equipment', x = 'Exemption Status', y = '')   + theme(axis.text.x = element_text(size=12)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) + 
+  scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+
+q40visMachineA
+
+
+q40_machineB_proportions <- ptpa23 %>% filter(question_num == 40 & category_id == 22 & sub_question_id %in% c(1) & !is.na(X2017_response) & !(X2017_response %in% c('NA','NULL','N/A'))) %>% group_by(sub_question, intlGrp) %>% summarize(n = n())
+
+q40_machineB <- ptpa23 %>% filter(question_num == 40 & category_id %in% c(22) & sub_question_id %in% c(1) & !is.na(X2017_response) & !(X2017_response %in% c('NULL','NA','','N/A','n/a')))  %>% group_by(X2017_response, intlGrp) %>% summarize(n = n()) %>% left_join(q40_machineB_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+q40visMachineB <- ggplot2::ggplot(q40_persPropB, aes(x = X2017_response, y = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_bw() + labs(title = stringr::str_wrap(paste0('2017: ',title),width=80), subtitle = 'Machinery and equipment', x = 'Exemption Status', y = '')   + theme(axis.text.x = element_text(size=12)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) + 
+  scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+q40visMachineB
+
+
+# 
+# 
+ggplot2::ggsave(plot = q40visGreenA, filename = 'visProd/q40/q40_green_2023.jpg')
+ggplot2::ggsave(plot = q40visGreenB, filename = 'visProd/q40/q40_green_2017.jpg')
+ggplot2::ggsave(plot = q40visPersPropA, filename = 'visProd/q40/q40_persProp_2023.jpg')
+ggplot2::ggsave(plot = q40visPersPropB, filename = 'visProd/q40/q40_persProp_2017.jpg')
+ggplot2::ggsave(plot = q40visMachineA, filename = 'visProd/q40/q40_machine_2023.jpg')
+ggplot2::ggsave(plot = q40visMachineB, filename = 'visProd/q40/q40_machine_2017.jpg')
+
+```
+
+
+### Question 42
+
+```{r echo = F}
+#Value limit for business personal property exemption	Range and most frequent – possibly using bar chart with percentages – also maybe showing comparison with dollar amounts in 2017
+q42 <- ptpa23 %>% filter(question_num == 42 & sub_question_id == 2 & !is.na(response_merged) & !(response_merged %in% c('NA','NULL','N/A'))) %>% select(c('jurisdiction_name','response_merged'))
+
+knitr::kable(q42)
+#manually make this an Excel-style table
+write.csv(q42, 'dataProd/q42.csv', row.names=F)
+```
+
+### Question 44
+```{r echo=F}
+
+#NOT ANSWERING IS THE SAME AS "NO" for this question - it says "Check all that apply". i think proportions should include NAs for this one
+q44_proportions <- ptpa23 %>% filter(question_num == 44 & sub_question_id < 6) %>% group_by(sub_question, intlGrp) %>% summarize(n = n())
+
+q44 <- ptpa23 %>% filter(question_num == 44 & sub_question_id < 6 & !is.na(response_merged) & !(response_merged %in% c('NA','NULL','N/A')))  %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(q44_proportions, by = c('intlGrp', 'sub_question')) %>% mutate(proportion = round(n.x/n.y,2))
+
+title = questions[44]
+
+q44vis <- ggplot2::ggplot(q44, aes(x = sub_question, y = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = '', x = 'Response', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 16))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+q44vis
+ggplot2::ggsave(q44vis, filename='visProd/q44/q44.jpg')
+
+```
+
 ## EXEMPTIONS, RELIEF, AND LIMITATIONS
 
 ### Question 45
@@ -359,12 +768,442 @@ q45subqs <- unique(q45$sub_question)
 ggplot(data = (q45), aes(x = sub_question, y = n, fill = intlGrp)) + 
   geom_bar(stat = "identity",  width = 0.4,
            position=position_dodge(width = 0.5))+
-  theme_bw() + labs(title = q45title) +
- coord_flip()
+  theme_bw() + labs(title = q45title) + coord_flip()
 #}
 ```
 
 
+### Question 47
+
+```{r echo = F}
+q47 <- ptpa23 %>% filter(question_num == 47) %>% select(c(question_desc, question_num, intlGrp, jurisdiction_name, sub_question, response, response_merged, X2017_response))
+# View(q47)
+write.csv(q47, 'dataProd/q47.csv', row.names=F)
+```
+
+### Question 49
+
+```{r echo = F}
+q49 <- ptpa23 %>% filter(question_num == 49) %>% select(c(question_desc, question_num, intlGrp, jurisdiction_name, sub_question, response, response_merged, X2017_response))
+# View(q49)
+write.csv(q49, 'dataProd/q49.csv', row.names=F)
+```
+
+### Question 54
+```{r echo=F}
+#freq table, fine to show NA frequencies IMO. did that a bit in 2017 conf ppt
+q54_cat1 <- ptpa23 %>% filter(question_num == 54  & category_id == 1) %>% dplyr::group_by(question_desc, category_desc,sub_question, response_merged) %>% dplyr::summarize(freq=n())
+
+q54_cat2 <- ptpa23 %>% filter(question_num == 54  & category_id == 2) %>% dplyr::group_by(question_desc, category_desc,sub_question, response_merged) %>% dplyr::summarize(freq=n())
+
+q54_cat3 <- ptpa23 %>% filter(question_num == 54  & category_id == 3) %>% dplyr::group_by(question_desc, category_desc,sub_question, response_merged) %>% dplyr::summarize(freq=n())
+
+q54_cat4 <- ptpa23 %>% filter(question_num == 54  & category_id == 4) %>% dplyr::group_by(question_desc, category_desc,sub_question, response_merged) %>% dplyr::summarize(freq=n())
+
+q54_cat5 <- ptpa23 %>% filter(question_num == 54  & category_id == 5) %>% dplyr::group_by(question_desc, category_desc,sub_question, response_merged) %>% dplyr::summarize(freq=n())
+
+q54_cat6 <- ptpa23 %>% filter(question_num == 54  & category_id == 6) %>% dplyr::group_by(question_desc, category_desc,sub_question, response_merged) %>% dplyr::summarize(freq=n())
+
+write.csv(q54_cat1, 'dataProd/q54_cat1.csv', row.names=F)
+write.csv(q54_cat2, 'dataProd/q54_cat2.csv', row.names=F)
+write.csv(q54_cat3, 'dataProd/q54_cat3.csv', row.names=F)
+write.csv(q54_cat4, 'dataProd/q54_cat4.csv', row.names=F)
+write.csv(q54_cat5, 'dataProd/q54_cat5.csv', row.names=F)
+write.csv(q54_cat6, 'dataProd/q54_cat6.csv', row.names=F)
+
+
+
+
+q54_cat1_vis_proportions <- ptpa23 %>% filter(question_num == 54  & !is.na(response_merged)) %>% dplyr::select(cross_survey_id, intlGrp) %>% unique() %>% dplyr::group_by(intlGrp) %>% summarize(n = n())
+
+# these sub questions specifically requested by Alan Dornfest
+q54_cat1_vis <- ptpa23  %>% dplyr::filter(question_num == 54 & category_id == 1 & !is.na(response_merged) & sub_question_id %in% c(1,2,3,4)) %>% dplyr::group_by(intlGrp, sub_question) %>% summarize(n = n()) %>% left_join(q54_cat1_vis_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2)) 
+
+
+q54vis_cat1 <- ggplot2::ggplot(q54_cat1_vis, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap('In your jurisdiction are there value exemptions/reductions for primary residences meeting different qualifications?',width=80), x = 'Response', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+q54vis_cat1
+ggplot2::ggsave(plot = q54vis_cat1, filename = 'visProd/q54/q54_cat1.jpg')
+
+```
+
+
+### Question 55
+```{r echo=F}
+q55_cat <- ptpa23 %>% dplyr::filter(question_num == 55 & category_id != 'NULL') %>% dplyr::select(category_desc, category_id) %>% unique() %>% dplyr::arrange(category_id)
+
+# View(ptpa23 %>% dplyr::filter(question_num == 55 & sub_question_id != 9))
+
+title = questions[55]
+
+#Conference presentation group: Proportion with any; common types such as school levies, etc.
+# No is an option, and it would be weird for somebody to answer one exemption qualifier and stop answering the rest with a technical NA response. So, if they answer at least one thing yes/no, and everything else NA, then we should count it in our proportion. Therefore, no longer varying the proportions per sub question as well
+q55_proportions <- ptpa23 %>% dplyr::filter(question_num == 55 & !is.na(response_merged)) %>% dplyr::select(cross_survey_id, intlGrp) %>% unique() %>% dplyr::group_by(intlGrp) %>% summarize(n = n())
+
+q55_cat1 <- ptpa23  %>% dplyr::filter(question_num == 55 & category_id == 1 & !is.na(response_merged) & !(response_merged %in% c('No')) ) %>% dplyr::group_by(intlGrp, sub_question) %>% summarize(n = n()) %>% left_join(q55_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2)) 
+q55_cat1$sub_question <- stringr::str_replace_all(q55_cat1$sub_question, '-', ' - ')
+
+# q55_proportions_sq2 <- ptpa23 %>% dplyr::filter(question_num == 55 & sub_question_id == 2 & !is.na(response_merged)) %>% dplyr::group_by(category_desc, intlGrp) %>% summarize(n = n())
+
+q55_cat2 <- ptpa23  %>% dplyr::filter(question_num == 55 & category_id == 2 & !is.na(response_merged) & !(response_merged %in% c('No'))) %>% dplyr::group_by(intlGrp, sub_question) %>% summarize(n = n()) %>% left_join(q55_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+q55_cat2$sub_question <- stringr::str_replace_all(q55_cat2$sub_question, '-', ' - ')
+
+# q55_proportions_sq3 <- ptpa23 %>% dplyr::filter(question_num == 55 & sub_question_id == 3 & !is.na(response_merged)) %>% dplyr::group_by(category_desc, intlGrp) %>% summarize(n = n())
+
+q55_cat3 <- ptpa23  %>% dplyr::filter(question_num == 55 & category_id == 3 & !is.na(response_merged) & !(response_merged %in% c('No'))) %>% dplyr::group_by(intlGrp, sub_question) %>% summarize(n = n()) %>% left_join(q55_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+q55_cat3$sub_question <- stringr::str_replace_all(q55_cat3$sub_question, '-', ' - ')
+
+# q55_proportions_sq4 <- ptpa23 %>% dplyr::filter(question_num == 55 & sub_question_id == 4 & !is.na(response_merged)) %>% dplyr::group_by(category_desc, intlGrp) %>% summarize(n = n())
+
+q55_cat4 <- ptpa23  %>% dplyr::filter(question_num == 55 & category_id == 4 & !is.na(response_merged) & !(response_merged %in% c('No'))) %>% dplyr::group_by(intlGrp, sub_question) %>% summarize(n = n()) %>% left_join(q55_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+q55_cat4$sub_question <- stringr::str_replace_all(q55_cat4$sub_question, '-', ' - ')
+
+# q55_proportions_sq5 <- ptpa23 %>% dplyr::filter(question_num == 55 & sub_question_id == 5 & !is.na(response_merged)) %>% dplyr::group_by(category_desc, intlGrp) %>% summarize(n = n())
+
+q55_cat5 <- ptpa23  %>% dplyr::filter(question_num == 55 & category_id == 5 & !is.na(response_merged) & !(response_merged %in% c('No'))) %>% dplyr::group_by(intlGrp, sub_question) %>% summarize(n = n()) %>% left_join(q55_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+q55_cat5$sub_question <- stringr::str_replace_all(q55_cat5$sub_question, '-', ' - ')
+
+
+q55vis_cat1 <- ggplot2::ggplot(q55_cat1, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = q55_cat[1,1], x = 'Responses - Full or Partial Exemption Indicated', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+
+q55vis_cat2 <- ggplot2::ggplot(q55_cat2, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = q55_cat[2,1], x = 'Responses - Described a Levy Type', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+
+q55vis_cat3 <- ggplot2::ggplot(q55_cat3, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = q55_cat[3,1], x = 'Responses - Yes', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+
+q55vis_cat4 <- ggplot2::ggplot(q55_cat4, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = q55_cat[4,1], x = 'Responses - Yes', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+
+q55vis_cat5 <- ggplot2::ggplot(q55_cat5, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = q55_cat[5,1], x = 'Responses - Yes', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+ 
+
+q55tbl_sq1 <- ptpa23  %>% dplyr::filter(question_num == 55 & sub_question_id == 1) %>% dplyr::group_by(sub_question, category_desc, response_merged) %>% dplyr::summarize(freq = n())
+q55tbl_sq2 <- ptpa23  %>% dplyr::filter(question_num == 55 & sub_question_id == 2) %>% dplyr::group_by(sub_question, category_desc, response_merged) %>% dplyr::summarize(freq = n())
+q55tbl_sq3 <- ptpa23  %>% dplyr::filter(question_num == 55 & sub_question_id == 3) %>% dplyr::group_by(sub_question, category_desc, response_merged) %>% dplyr::summarize(freq = n())
+q55tbl_sq4 <- ptpa23  %>% dplyr::filter(question_num == 55 & sub_question_id == 4) %>% dplyr::group_by(sub_question, category_desc, response_merged) %>% dplyr::summarize(freq = n())
+q55tbl_sq5 <- ptpa23  %>% dplyr::filter(question_num == 55 & sub_question_id == 5) %>% dplyr::group_by(sub_question, category_desc, response_merged) %>% dplyr::summarize(freq = n())
+
+q55vis_cat1
+q55vis_cat2
+q55vis_cat3
+q55vis_cat4
+q55vis_cat5
+
+ggplot2::ggsave(plot = q55vis_cat1, filename = 'visProd/q55/q55_cat1.jpg')
+ggplot2::ggsave(plot = q55vis_cat2, filename = 'visProd/q55/q55_cat2.jpg')
+ggplot2::ggsave(plot = q55vis_cat3, filename = 'visProd/q55/q55_cat3.jpg')
+ggplot2::ggsave(plot = q55vis_cat4, filename = 'visProd/q55/q55_cat4.jpg')
+ggplot2::ggsave(plot = q55vis_cat5, filename = 'visProd/q55/q55_cat5.jpg')
+
+q55data <- ptpa23 %>% dplyr::filter(question_num == 55)
+write.csv(q55data, 'dataProd/q55.csv', row.names=F)
+
+```
+
+## Payments in Lieu of Tax / Economic Incentives
+
+### Question 57
+```{r echo=F}
+#Bar chart with percentage of “yes” responses per category. I think only relevant for the US.
+q57_proportions <- ptpa23 %>% dplyr::filter(question_num == 57 & sub_question_id != 9 & !is.na(response_merged ) & !(response_merged %in% c('NA','N/A','NULL'))) %>% dplyr::group_by(intlGrp, sub_question) %>% dplyr::summarize(n = n())
+
+q57 <- ptpa23 %>% dplyr::filter(question_num == 57 & sub_question_id != 9 & !is.na(response_merged ) & !(response_merged %in% c('NA','N/A','NULL', 'No', 'Unknown'))) %>% dplyr::group_by(sub_question, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q57_proportions, by = c('intlGrp', 'sub_question')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+title = questions[57]
+q57_vis <- ggplot2::ggplot(q57, aes(y = sub_question, x = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge")+
+  theme_bw() + labs(title = stringr::str_wrap((title),width=45), x = '', y='Category', subtitle = 'Counting "Yes" Responses')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4.5,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group') +  theme(axis.text.x = element_blank()) +  scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 30)) + theme(axis.text.y = element_text(size = 10))
+
+q57_vis
+ggplot2::ggsave(plot=q57_vis, filename=  'visProd/q57/q57.jpg')
+```
+
+### Question 58
+```{r echo=F}
+# Bar chart with percentage of “yes” responses per category. I think only relevant for the US.
+q58_proportions <- ptpa23 %>% dplyr::filter(question_num == 58 & sub_question_id != 9 & !is.na(response_merged ) & !(response_merged %in% c('NA','N/A','NULL'))) %>% dplyr::group_by(intlGrp, sub_question) %>% dplyr::summarize(n = n())
+
+q58 <- ptpa23 %>% dplyr::filter(question_num == 58 & sub_question_id != 9 & !is.na(response_merged ) & !(response_merged %in% c('NA','N/A','NULL', 'No', 'Unknown'))) %>% dplyr::group_by(sub_question, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q58_proportions, by = c('intlGrp', 'sub_question')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+title = questions[58]
+q58_vis <- ggplot2::ggplot(q58, aes(y = sub_question, x = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge")+
+  theme_bw() + labs(title = stringr::str_wrap((title),width=45), x = '', y='Category', subtitle = 'Counting "Yes" Responses')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4.5,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group') +  theme(axis.text.x = element_blank()) +  scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 30)) + theme(axis.text.y = element_text(size = 10))
+
+q58_vis
+ggplot2::ggsave(plot=q58_vis, filename=  'visProd/q58/q58.jpg')
+
+```
+
+
+### Question 59
+```{r echo=F}
+# Three charts with aggregated results (US, Can and INT)
+q59_proportions <- ptpa23 %>% dplyr::filter(question_num == 59 & sub_question_id != 10) %>% dplyr::select(c('jurisdiction_name','intlGrp')) %>% unique() %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n = n())
+
+q59 <- ptpa23 %>% dplyr::filter(question_num == 59 & sub_question_id != 10 & !(response_merged %in% c('NA','N/A','NULL', 'No', 'Unknown')) & !is.na(response_merged)) %>% dplyr::group_by(sub_question, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q59_proportions, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+title = questions[59]
+q59_vis <- ggplot2::ggplot(q59, aes(y = sub_question, x = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge")+
+  theme_bw() + labs(title = stringr::str_wrap('Which of the following property-related business incentive or economic development programs are offered in your state/province/nation?',width=60), x = '', y='Business Incentive/Economic Development Programs', subtitle = 'Counting "Yes" Responses')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4.5,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group') +  theme(axis.text.x = element_blank()) +  scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.y = element_text(size = 9))
+
+q59_vis
+ggplot2::ggsave(plot=q59_vis, filename=  'visProd/q59/q59.jpg')
+write.csv(q59, 'dataProd/q59summarized.csv', row.names=F)
+write.csv(filter(ptpa23, question_num == 59), 'dataProd/q59.csv', row.names=F)
+
+```
+
+
+
+### Question 60
+```{r echo=F}
+#proportions here will be based off total number of non-na responses among all subQs, that way, proportions != 1
+q60_proportions <- ptpa23 %>% dplyr::filter(question_num == 60 & !is.na(response_merged)) %>% dplyr::group_by(intlGrp) %>% summarize(n = n())
+
+q60 <- ptpa23  %>% dplyr::filter(question_num == 60 & !is.na(response_merged)) %>% dplyr::group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(q60_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+title = questions[60]
+
+q60vis <- ggplot2::ggplot(q60, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = '', x = 'Response', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20))  + theme(axis.text.y = element_blank(), axis.text.x = element_text(size=12)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+q60vis
+
+q60_otherDescribe <- ptpa23 %>% dplyr::filter(question_num == 60 & !is.na(response_merged) & sub_question_id == 3) %>% dplyr::select(c('question_desc','jurisdiction_name','sub_question','response_merged')) 
+
+ggplot2::ggsave(plot = q60vis, filename = 'visProd/q60/q60.jpg')
+write.csv(q60_otherDescribe, 'dataProd/q60_otherDescribeAnswers.csv', row.names=F)
+```
+
+### Question 61
+```{r echo=F}
+#Proportion and range of limits
+# Per Alan Dornfest, remove 100% answers
+title = questions[61]
+
+q61_categories <- ptpa23 %>% dplyr::filter(question_num == 61) %>% dplyr::select(category_desc, category_id) %>% unique() %>% dplyr::arrange(category_id)
+
+# If they answer at least one level of this question non NA, then they likely read everything and their other NA responses are really "NO". This standardizes the proportions among graphs as well, which makes more sense to the viewer
+q61_proportions <- ptpa23 %>% dplyr::filter(question_num == 61 & !is.na(response_merged) & response_merged != '100%') %>% dplyr::select(c('intlGrp', 'cross_survey_id')) %>% unique() %>% dplyr::group_by(intlGrp) %>% summarize(n = n())
+
+# 
+# q39b <- ptpa23 %>% filter(question_num == 39 & sub_question_id < 7 & response_merged != 'None. There is no limit on increases.' & !is.na(response_merged)) %>% mutate(response_q39b = as.numeric(stringr::str_replace(response_merged, '%', ''))/100)
+# 
+# # q39visb <- ggplot2::ggplot() +
+#   geom_boxplot(data=q39b, aes(x = sub_question, y = response_q39b), outlier.shape = NA) + 
+#   geom_jitter(data=q39b, aes(x = sub_question, y = response_q39b, color = intlGrp, stroke = 1.5), width = 0.2)+
+#   theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = 'Property Type/Tax Categories', y = 'Statutory Limit')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 15)) +  labs(color = 'Group') + scale_y_continuous(labels = scales::percent_format()) + scale_color_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+
+
+
+q61_cat1 <- ptpa23  %>% dplyr::filter(question_num == 61 & !is.na(response_merged) & response_merged != 'No' & response_merged != '100%' & category_id == 1) %>% mutate(response_q61cat1 = as.numeric(stringr::str_replace(response_merged, '%', ''))/100)
+
+# q61_proportions_cat2 <- ptpa23 %>% dplyr::filter(question_num == 61 & !is.na(response_merged) & category_id == 2) %>% dplyr::group_by(intlGrp,sub_question) %>% summarize(n = n())
+
+q61_cat2 <- ptpa23  %>% dplyr::filter(question_num == 61 & !is.na(response_merged) & response_merged != 'No' & response_merged != '100%' & category_id == 2) %>% dplyr::group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(q61_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+q61vis_cat1 <- ggplot2::ggplot() + 
+  ggplot2::geom_boxplot(data= q61_cat1, aes(x=sub_question, y = response_q61cat1), outlier.shape=NA) +
+  geom_jitter(data= q61_cat1, aes(x=sub_question, y = response_q61cat1, color = intlGrp, stroke = 1.5), width=0.2) +
+                theme_bw() + labs(title = stringr::str_wrap('Is there a limit on annual increases in individual residential property taxes?',width=80), subtitle = q61_categories[1,1], x = 'Exemption Qualifier', y = 'Tax Increase Limit')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 15)) +  labs(color = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + scale_color_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_continuous(labels = function(x) paste0(x*100, '%'))
+
+q61vis_cat1
+
+q61vis_cat2 <- ggplot2::ggplot(q61_cat2, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap('Is there a limit on annual increases in individual residential property taxes?',width=80), subtitle = q61_categories[2,1], x = 'Exemption Qualifier, Counting Number of "Yes" Responses', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank(), axis.text.x = element_text(size=10)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+q61vis_cat2
+
+
+ggplot2::ggsave(plot = q61vis_cat1, filename = 'visProd/q61/q61_cat1.jpg')
+ggplot2::ggsave(plot = q61vis_cat2, filename = 'visProd/q61/q61_cat2.jpg')
+
+write.csv(ptpa23 %>% dplyr::filter(question_num == 61), 'dataProd/q61.csv' , row.names = F)
+
+```
+
+### Question 62
+```{r echo=F}
+# No option for "no", so include NA in proportion
+q62_proportions <- ptpa23 %>% dplyr::filter(question_num == 62) %>% dplyr::select(c('intlGrp', 'cross_survey_id')) %>% unique() %>% dplyr::group_by(intlGrp) %>% summarize(n = n())
+
+q62_no3 <- ptpa23 %>% dplyr::filter(question_num == 62 & sub_question_id %in% c(1,2,4)) %>% dplyr::select(c(question_desc, cross_survey_id, jurisdiction_name, intlGrp, sub_question_id, sub_question, response, response_merged, X2017_response)) %>% dplyr::mutate(response_merged = dplyr::case_when(response_merged == 'Yes' ~ sub_question, T ~ response_merged))
+
+# matching is done on 2 questions in 2017 to 1 question  in 2023 - so we need to take a yes in either response in 2017 and match that to a yes in the broader subQ for 2017
+q62_sq3 <- ptpa23 %>% dplyr::filter(question_num == 62 & sub_question_id %in% c(3)) %>% dplyr::select(c(question_desc, cross_survey_id, jurisdiction_name, intlGrp, sub_question_id, sub_question, response, response_merged, X2017_response)) %>% dplyr::mutate(response_merged = dplyr::case_when(response_merged == 'Yes' ~ sub_question, T ~ response_merged)) %>% dplyr::filter(!is.na(response_merged ))
+
+q62 <- rbind(q62_no3, q62_sq3) %>% dplyr::filter(!is.na(response_merged)) %>% dplyr::group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(q62_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+title <- questions[62]
+
+q62vis <- ggplot2::ggplot(q62, aes(x = sub_question, y = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = 'Responses - Indicating Statutory Restriction or Rule', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 15)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +   scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group')  + theme(axis.text.x = element_text(size=12)) + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+q62vis
+
+ggplot2::ggsave(filename= 'visProd/q62/q62vis.jpg', plot = q62vis)
+
+```
+
+### Question 65
+```{r echo=F}
+# Common types and recent changes - list
+# should already be handled by narrative list
+q65 <- ptpa23 %>% dplyr::filter(question_num == 65)
+```
+
+
+### Question 66
+```{r echo=F}
+q66_proportions <- ptpa23 %>% dplyr::filter(question_num == 66 & sub_question_id == 1 & !is.na(response_merged)) %>%
+  dplyr::mutate(response_merged = dplyr::case_when(
+    response_merged == 'Not applicable--no limits' ~ 'Not Applicable',
+    T ~ response_merged)) %>%
+  dplyr::group_by(intlGrp) %>% dplyr::summarize(n=n())
+
+q66  <- ptpa23 %>% dplyr::filter(question_num == 66 & sub_question_id == 1 & !is.na(response_merged)) %>%   dplyr::mutate(response_merged = dplyr::case_when(
+    response_merged == 'Not applicable--no limits' ~ 'Not Applicable',
+    T ~ response_merged)) %>% dplyr::filter(response_merged != 'Not Applicable') %>% dplyr::group_by(response_merged, intlGrp) %>% summarize(n = n()) %>% left_join(q66_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+title = questions[66]
+q66vis <- ggplot2::ggplot(q66, aes(x = response_merged, y = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = 'Response', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 15)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +   scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group')  + theme(axis.text.x = element_text(size=12)) + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+  
+q66vis
+ggplot2::ggsave(filename= 'visProd/q66/q66vis.jpg', plot = q66vis)
+```
+
+### Question 69
+
+```{r echo=F}
+# Common types and recent changes - list
+# should already be handled by narrative list
+q69_proportions <- ptpa23 %>% dplyr::filter(question_num == 69 & sub_question_id != 8 & !is.na(response_merged) & !(response_merged %in% c('NA','NULL',''))) %>% dplyr::select(intlGrp, cross_survey_id) %>% unique() %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n = n())
+
+q69 <- ptpa23 %>% dplyr::filter(question_num == 69 & sub_question_id != 8 & !is.na(response_merged) & !(response_merged %in% c('NA','NULL','')) ) %>% dplyr::mutate(q69response = paste0(sub_question, ' - ', response_merged)) %>% dplyr::group_by(category_id, category_desc,sub_question, response_merged, intlGrp) %>% summarize(n = n()) %>% dplyr::left_join(q69_proportions, join_by('intlGrp'))  %>% dplyr::mutate(proportion = n.x/n.y)
+q69$sub_question <- stringr::str_replace_all(q69$sub_question, '/', ' / ')
+q69$sub_question <- stringr::str_replace_all(q69$sub_question, '-', ' - ')
+
+q69cat1 <- q69 %>% filter(category_id == 1 & response_merged == 'Yes')
+q69cat2_allowed <- q69 %>% filter(category_id == 2 & response_merged == 'Allowed')
+q69cat2_mandatory <- q69 %>% filter(category_id == 2 & response_merged == 'Mandatory')
+q69cat3_allowed <- q69 %>% filter(category_id == 3 & response_merged == 'Allowed')
+q69cat3_mandatory <- q69 %>% filter(category_id == 3 & response_merged == 'Mandatory')
+
+
+
+q69_viscat1 <- ggplot2::ggplot(q69cat1, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap('In general, what triggers a mandated property inspection?',width=80), x = 'Triggers', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank(), axis.text.x = element_text(size=10)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+q69_viscat2_allowed <- ggplot2::ggplot(q69cat2_allowed, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap('In general, what triggers a mandated property inspection?',width=80), subtitle = 'Counting Responses - On-site Inspection is Allowed to Satisfy Inspection',x = 'Triggers', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank(), axis.text.x = element_text(size=10)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+q69_viscat2_mandatory <- ggplot2::ggplot(q69cat2_mandatory, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap('In general, what triggers a mandated property inspection?',width=80), subtitle = 'Counting Responses - On-site Inspection is Mandatory to Satisfy Inspection', x = 'Triggers', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank(), axis.text.x = element_text(size=10)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+q69_viscat3_allowed <- ggplot2::ggplot(q69cat3_allowed, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap('In general, what triggers a mandated property inspection?',width=80), subtitle = 'Counting Responses - Desktop Review is Allowed to Satisfy Inspection',x = 'Triggers', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank(), axis.text.x = element_text(size=10)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+q69_viscat3_mandatory <- ggplot2::ggplot(q69cat3_mandatory, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap('In general, what triggers a mandated property inspection?',width=80), subtitle = 'Counting Responses - Desktop Review is Mandatory to Satisfy Inspection', x = 'Triggers', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank(), axis.text.x = element_text(size=10)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+q69_viscat1
+q69_viscat2_allowed
+q69_viscat2_mandatory
+q69_viscat3_allowed
+q69_viscat3_mandatory
+
+
+ggplot2::ggsave(plot = q69_viscat1, filename = 'visProd/q69/q69_viscat1.jpg')
+ggplot2::ggsave(plot = q69_viscat2_allowed, filename = 'visProd/q69/q69_viscat2_allowed.jpg')
+ggplot2::ggsave(plot = q69_viscat2_mandatory, filename = 'visProd/q69/q69_viscat2_mandatory.jpg')
+ggplot2::ggsave(plot = q69_viscat3_allowed, filename = 'visProd/q69/q69_viscat3_allowed.jpg')
+ggplot2::ggsave(plot = q69_viscat3_mandatory, filename = 'visProd/q69/q69_viscat3_mandatory.jpg')
+
+write.csv(q69, 'dataProd/q69_Summarized.csv', row.names=F)
+write.csv(ptpa23 %>% dplyr::filter(question_num == 69), 'dataProd/q69_rawData.csv', row.names=F)
+```
+
+### Question 70
+```{r echo=F}
+# Common types and recent changes - list
+# should already be handled by narrative list
+# Per Melissa Baer verification, 50 was potentially a response for a pilot in Monmouth. There is no cycle - code NA
+# Per alaska.gov website, use 6 for reinspection? For those areas that do have a property tax, it must be assessed and taxed as authorized by AS 29.45.010 - .600. All property is taxable unless specifically exempted by law. Property required to be exempt from the property tax includes property owned by local, state, and federal governments, except that a private leasehold, contract, or other interest in that property, including the use of that property by an individual, company, or corporation, is taxable to the extent of that interest. Other required exemptions include senior citizens and disabled veterans, as well as property used for non-profit educational, religious, hospital, charitable and cemetery purposes. Required exemptions can be found in AS 29.45.030. Municipalities are given wide latitude to exempt all or some categories of personal property as well as other types or uses of property. These optional exemptions can be found in AS 29.45.050.
+# Property is required to be valued at market value each and every year as of January 1. Reinspection of property is to be made in accordance with a resolution or an ordinance of the local governing body but the inspection cycle should not exceed more than six (6) years.
+# https://www.commerce.alaska.gov/web/dcra/LocalGovernmentResourceDesk/TaxationAssessment/PropertyTax.aspx
+
+q70_proportions <- ptpa23 %>% dplyr::filter(question_num == 70 & sub_question_id == 1 & !is.na(response_merged) & !(response_merged %in% c('NA','NULL',''))) %>% dplyr::group_by(intlGrp) %>% summarize(n = n())
+# 
+q70 <- ptpa23 %>% dplyr::filter(question_num == 70 & sub_question_id == 1 & !is.na(response_merged) & !(response_merged %in% c('NA','NULL',''))) %>%
+  dplyr::mutate(response_merged = dplyr::case_when(response_merged == 'Six-year cycle for physical inspections' ~ 6,
+                                                   response_merged == 99 & jurisdiction_name == 'Alaska' ~ 6,
+                                                   response_merged == 50 & jurisdiction_name == 'New Jersey' ~ NA,
+                                                   T ~as.numeric(response_merged))) %>%
+  dplyr::group_by(intlGrp) %>% summarize(n = n(),
+                                                          min = min(response_merged, na.rm=T),
+                                                          max = max(response_merged, na.rm=T),
+                                                          avg = mean(response_merged, na.rm=T),
+                                                          med = median(response_merged, na.rm=T)
+                                                          )
+
+# q70_99forAlaska <- ptpa23 %>% dplyr::filter(question_num == 70 & sub_question_id == 1 & !is.na(response_merged) & !(response_merged %in% c('NA','NULL',''))) %>%
+#   dplyr::mutate(response_merged = dplyr::case_when(response_merged == 'Six-year cycle for physical inspections' ~ 6,response_merged == 99 & jurisdiction_name == 'Alaska' ~ 99, T ~as.numeric(response_merged))) %>%
+#   dplyr::group_by(intlGrp) %>% summarize(n = n(),
+#                                                           min = min(response_merged, na.rm=T),
+#                                                           max = max(response_merged, na.rm=T),
+#                                                           avg = mean(response_merged, na.rm=T),
+#                                                           med = median(response_merged, na.rm=T)
+#                                                           )
+
+write.csv(q70, 'dataProd/q70_fixedAlaska_NewJersey.csv' ,row.names = F)
+# write.csv(q70_99forAlaska, 'dataProd/q70_using99years_originalResponse_ForAlaska.csv' ,row.names = F)
+
+```
+
+### Question 71
+
+```{r echo=F}
+q71USA <- ptpa23 %>% dplyr::filter(question_num == 71 & sub_question_id == 1 & !is.na(response_merged) & intlGrp == 'USA') %>% dplyr::group_by(intlGrp, response_merged) %>% dplyr::summarize(n=n())
+
+q71CANADA <- ptpa23 %>% dplyr::filter(question_num == 71 & sub_question_id == 1 & !is.na(response_merged) & intlGrp == 'CANADA') %>% dplyr::group_by(intlGrp, response_merged) %>% dplyr::summarize(n=n())
+
+q71INTL <- ptpa23 %>% dplyr::filter(question_num == 71 & sub_question_id == 1 & !is.na(response_merged) & intlGrp == 'INTL') %>% dplyr::group_by(intlGrp, response_merged) %>% dplyr::summarize(n=n())
+
+title = questions[71]
+
+q71vis_usa <- ggplot(data = q71USA, aes(x = '', y = n, fill = response_merged)) + 
+   geom_bar(stat="identity", width=1, color="black") +
+  coord_polar("y", start=0) + labs(title = stringr::str_wrap(title,width=65), subtitle = 'United States of America Respondents', x= '', y = '') + 
+  geom_text(aes(label = n),
+            position = position_stack(vjust = .5), size = 9) + theme_void() + scale_fill_manual(values = c("Yes" = '#F0E442', "Unknown" = '#009E73', "No" = '#CC79A7')) + labs(fill = 'Response')
+
+q71vis_usa
+
+
+q71vis_canada <- ggplot(data = q71CANADA, aes(x = '', y = n, fill = response_merged)) + 
+   geom_bar(stat="identity", width=1, color="#CC79A7") +
+  coord_polar("y", start=0) + labs(title = stringr::str_wrap(title,width=65), subtitle = 'Canadian Respondents', x= '', y = '') + 
+  geom_text(aes(label = n),
+            position = position_stack(vjust = .5), size = 9) + theme_void() + scale_fill_manual(values = c("Yes" = '#F0E442', "Unknown" = '#009E73', "No" = '#CC79A7')) + labs(fill = 'Response')
+
+q71vis_canada
+
+q71vis_intl <- ggplot(data = q71INTL, aes(x = '', y = n, fill = response_merged)) + 
+   geom_bar(stat="identity", width=1, color="#CC79A7") +
+  coord_polar("y") + labs(title = stringr::str_wrap(title,width=65), subtitle = 'International Respondents (outside of USA, Canada)', x= '', y = '') + 
+  geom_text(aes(label = n),
+            position = position_stack(vjust = .5), size = 9) + theme_void() + scale_fill_manual(values = c("Yes" = '#F0E442', "Unknown" = '#009E73', "No" = '#CC79A7')) + labs(fill = 'Response')
+
+q71vis_intl
+
+ggplot2::ggsave(plot = q71vis_usa, filename = 'visProd/q71/q71_usa.jpg')
+ggplot2::ggsave(plot = q71vis_canada, filename = 'visProd/q71/q71_canada.jpg')
+ggplot2::ggsave(plot = q71vis_intl, filename = 'visProd/q71/q71_intl.jpg')
+
+
+```
 
 ## MANDATED PROPERTY INSPECTIONS/APPRAISAL CYCLE
 ### Question 72
@@ -372,26 +1211,152 @@ ggplot(data = (q45), aes(x = sub_question, y = n, fill = intlGrp)) +
 Some clear problems with output, however, this might have just been how they were allowed to answer. Look into this.
 
 ```{r echo = F}
-q72 <- ptpa23 %>% filter(question_num == 72 & response != 'NA') %>% 
-  group_by(intlGrp, sub_question, response) %>% summarize(n = n()) %>% data.frame() %>% filter(!is.na(response))
-q72title <- questions[72]
-# q45subqs <- unique(q45$sub_question)
+
+q72_unique_answers_state <- ptpa23 %>% filter(question_num == 72 & response_merged != 'NULL' & !is.na(response_merged) & sub_question_id == 1) %>% dplyr::select(c(response_merged)) %>% unique()
+
+q72_proportions_state <- ptpa23 %>% filter(question_num == 72 & response_merged != 'NULL' & !is.na(response_merged) & sub_question_id == 1 & response_merged %in% q72_unique_answers_state[,1]) %>% dplyr::select(c(jurisdiction_name, intlGrp)) %>% unique() %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n=n())
+
+q72_state_a <- ptpa23 %>% dplyr::filter(question_num == 72 & response_merged != 'NULL' & !is.na(response_merged) & sub_question_id == 1 & stringr::str_detect(response_merged, '1')) %>%
+  dplyr::mutate(response_q72_forVis = '1') %>%
+dplyr::group_by(response_q72_forVis, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q72_proportions_state, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+q72_state_b <- ptpa23 %>% dplyr::filter(question_num == 72 & response_merged != 'NULL' & !is.na(response_merged) & sub_question_id == 1 & stringr::str_detect(response_merged, '2')) %>%
+  dplyr::mutate(response_q72_forVis = '2') %>%
+dplyr::group_by(response_q72_forVis, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q72_proportions_state, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+q72_state_c <- ptpa23 %>% dplyr::filter(question_num == 72 & response_merged != 'NULL' & !is.na(response_merged) & sub_question_id == 1 & stringr::str_detect(response_merged, '3')) %>%
+  dplyr::mutate(response_q72_forVis = '3') %>%
+dplyr::group_by(response_q72_forVis, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q72_proportions_state, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+q72_state_d <- ptpa23 %>% dplyr::filter(question_num == 72 & response_merged != 'NULL' & !is.na(response_merged) & sub_question_id == 1 & stringr::str_detect(response_merged, '4')) %>%
+  dplyr::mutate(response_q72_forVis = '4') %>%
+dplyr::group_by(response_q72_forVis, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q72_proportions_state, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+q72_state_e <- ptpa23 %>% dplyr::filter(question_num == 72 & response_merged != 'NULL' & !is.na(response_merged) & sub_question_id == 1 & stringr::str_detect(response_merged, '5')) %>%
+  dplyr::mutate(response_q72_forVis = '5') %>%
+dplyr::group_by(response_q72_forVis, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q72_proportions_state, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+q72_state_f <- ptpa23 %>% dplyr::filter(question_num == 72 & response_merged != 'NULL' & !is.na(response_merged) & sub_question_id == 1 & stringr::str_detect(response_merged, 'Other')) %>%
+  dplyr::mutate(response_q72_forVis = 'Other') %>%
+dplyr::group_by(response_q72_forVis, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q72_proportions_state, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+q72_state_g <- ptpa23 %>% dplyr::filter(question_num == 72 & response_merged != 'NULL' & !is.na(response_merged) & sub_question_id == 1 & stringr::str_detect(response_merged, 'No specified')) %>%
+  dplyr::mutate(response_q72_forVis = 'No specified cycle') %>%
+dplyr::group_by(response_q72_forVis, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q72_proportions_state, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+q72_state <- rbind(q72_state_a, q72_state_b, q72_state_c, q72_state_d, q72_state_e, q72_state_f, q72_state_g)
 
 
-ggplot(data = filter(q72, sub_question == 'Locally Assessed'), aes(x = response, y = n, fill = intlGrp)) + 
-  geom_bar(stat = "identity",  width = 0.4,
-           position=position_dodge(width = 0.5))+
-  theme_bw() + labs(title = q72title, subtitle = 'Locally Assessed') + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
- coord_flip()
 
-ggplot(data = filter(q72, sub_question == 'State Assessed'), aes(x = response, y = n, fill = intlGrp)) + 
-  geom_bar(stat = "identity",  width = 0.4,
-           position=position_dodge(width = 0.5))+
-  theme_bw() + labs(title = q72title, subtitle = 'State Assessed') + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
- coord_flip()
 
-ggplot(data = filter(q72, sub_question == 'Other (please type number of years)'), aes(x = response, y = n, fill = intlGrp)) + 
-  geom_bar(stat = "identity",  width = 0.4,
-           position=position_dodge(width = 0.5))+
-  theme_bw() + labs(title = q72title, subtitle = 'Other - messed up right now because we need to clean for # years specifically like we asked for') #+ theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+q72_unique_answers_local <- ptpa23 %>% filter(question_num == 72 & response_merged != 'NULL' & !is.na(response_merged) & sub_question_id == 2) %>% dplyr::select(c(response_merged)) %>% unique()
+
+q72_proportions_local <- ptpa23 %>% filter(question_num == 72 & response_merged != 'NULL' & !is.na(response_merged) & sub_question_id == 2 & response_merged %in% q72_unique_answers_local[,1]) %>% dplyr::select(c(jurisdiction_name, intlGrp)) %>% unique() %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n=n())
+
+q72_local_a <- ptpa23 %>% dplyr::filter(question_num == 72 & response_merged != 'NULL' & !is.na(response_merged) & sub_question_id == 2 & stringr::str_detect(response_merged, '4 years')) %>%
+  dplyr::mutate(response_q72_forVis = '4') %>%
+dplyr::group_by(response_q72_forVis, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q72_proportions_local, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+q72_local_b <- ptpa23 %>% dplyr::filter(question_num == 72 & response_merged != 'NULL' & !is.na(response_merged) & sub_question_id == 2 & stringr::str_detect(response_merged, 'No specified cycle')) %>%
+  dplyr::mutate(response_q72_forVis = 'No specified cycle') %>%
+dplyr::group_by(response_q72_forVis, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q72_proportions_local, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+q72_local_c <- ptpa23 %>% dplyr::filter(question_num == 72 & response_merged != 'NULL' & !is.na(response_merged) & sub_question_id == 2 & stringr::str_detect(response_merged, '3 years')) %>%
+  dplyr::mutate(response_q72_forVis = '3') %>%
+dplyr::group_by(response_q72_forVis, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q72_proportions_local, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+q72_local_d <- ptpa23 %>% dplyr::filter(question_num == 72 & response_merged != 'NULL' & !is.na(response_merged) & sub_question_id == 2 & stringr::str_detect(response_merged, '1 year')) %>%
+  dplyr::mutate(response_q72_forVis = '1') %>%
+dplyr::group_by(response_q72_forVis, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q72_proportions_local, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+q72_local_e <- ptpa23 %>% dplyr::filter(question_num == 72 & response_merged != 'NULL' & !is.na(response_merged) & sub_question_id == 2 & stringr::str_detect(response_merged, '2 year')) %>%
+  dplyr::mutate(response_q72_forVis = '2') %>%
+dplyr::group_by(response_q72_forVis, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q72_proportions_local, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+q72_local_f <- ptpa23 %>% dplyr::filter(question_num == 72 & response_merged != 'NULL' & !is.na(response_merged) & sub_question_id == 2 & stringr::str_detect(response_merged, '5 year')) %>%
+  dplyr::mutate(response_q72_forVis = '5') %>%
+dplyr::group_by(response_q72_forVis, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q72_proportions_local, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+q72_local_g <- ptpa23 %>% dplyr::filter(question_num == 72 & response_merged != 'NULL' & !is.na(response_merged) & sub_question_id == 2 & stringr::str_detect(response_merged, 'Other')) %>%
+  dplyr::mutate(response_q72_forVis = 'Other') %>%
+dplyr::group_by(response_q72_forVis, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q72_proportions_local, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+
+q72_local <- rbind(q72_local_a, q72_local_b, q72_local_c, q72_local_d, q72_local_e, q72_local_f, q72_local_g)
+
+title <- questions[72]
+
+q72_vis_state <- ggplot2::ggplot(q72_state, aes(y = proportion, x = response_q72_forVis, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_bw() +  labs(title = stringr::str_wrap('Does statute specify a requirement for periodic reappraisal of state assessed property?',width=80), y = '', x = 'Cycle', subtitle = 'Respondents could choose multiple answers') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1, hjust = .5) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.x = element_text(size = 11))
+
+q72_vis_state
+
+
+q72_vis_local <- ggplot2::ggplot(q72_local, aes(y = proportion, x = response_q72_forVis, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_bw() +  labs(title = stringr::str_wrap('Does statute specify a requirement for periodic reappraisal of locally assessed property?',width=75), y = '', x = 'Cycle', subtitle = 'Respondents could choose multiple answers') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1, hjust = .5) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.x = element_text(size = 11))
+
+q72_vis_local
+
+
+ggplot2::ggsave(plot = q72_vis_local, filename = 'visProd/q72/q72local.jpg')
+ggplot2::ggsave(plot = q72_vis_state, filename = 'visProd/q72/q72state.jpg')
+```
+
+### Question 73
+```{r echo=F}
+q73_proportions <- ptpa23 %>% dplyr::filter(question_num == 73 & !is.na(response_merged)) %>% dplyr::select(intlGrp, jurisdiction_name) %>% unique %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n=n())
+
+
+q73 <- ptpa23 %>% dplyr::filter(question_num == 73 & !is.na(response_merged)) %>% dplyr::group_by(intlGrp, response_merged) %>% dplyr::summarize(n = n()) %>% left_join(q73_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+customSort <- q73$response_merged %>% unique() %>% as.numeric() %>% sort()
+
+title <- questions[73]
+q73_vis <- ggplot2::ggplot(q73, aes(y = proportion, x = factor(response_merged, levels = c(customSort)), fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_bw() +  labs(title = stringr::str_wrap(title,width=75), y = '', x = 'Cycle (in years)') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4,position = position_dodge(width = 0.9), vjust = 1, hjust = .5) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.x = element_text(size = 11))
+
+q73_vis
+
+q73_tbl <- ptpa23 %>% dplyr::filter(question_num == 73 & !is.na(response_merged)) %>% dplyr::mutate(response_merged = as.numeric(response_merged)) %>% dplyr::group_by(intlGrp) %>% 
+  dplyr::summarize(n = n(), min = min(response_merged, na.rm=T), median = median(response_merged, na.rm=T), avg = mean(response_merged,na.rm=T), max =  max(response_merged, na.rm=T))
+
+ggplot2::ggsave(plot = q73_vis, filename = 'visProd/q73/q73.jpg')
+write.csv(q73_tbl, 'dataProd/q73_summaryStats.csv')
+
+```
+
+### Question 75
+```{r echo=F}
+q75_proportions <- ptpa23 %>% dplyr::filter(question_num == 75 & !is.na(response_merged)) %>% dplyr::select(intlGrp, jurisdiction_name) %>% unique %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n=n())
+
+q75 <-  ptpa23 %>% dplyr::filter(question_num == 75 & !is.na(response_merged)) %>% dplyr::group_by(intlGrp, sub_question) %>% dplyr::summarize(n = n()) %>% left_join(q75_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+title = questions[75]
+q75_vis <- ggplot2::ggplot(q75, aes(y = proportion, x = sub_question, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_bw() +  labs(title = stringr::str_wrap('Between reappraisal years, is real property subject to adjustment in assessed value?',width=75), y = '', x = 'Response', subtitle = 'Respondents could choose multiple answers') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1, hjust = .5) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 15))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.x = element_text(size = 11))
+
+q75_vis
+ggplot2::ggsave(plot = q75_vis, filename = 'visProd/q75/q75.jpg')
+
+```
+
+### Question 76
+
+```{r echo=F}
+q76_proportions <- ptpa23 %>% dplyr::filter(question_num==76 & sub_question_id == 1 & !is.na(response_merged)) %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n=n())
+
+q76 <-  ptpa23 %>% dplyr::filter(question_num == 76 & sub_question_id == 1 & !is.na(response_merged)) %>% dplyr::group_by(intlGrp, response_merged) %>% dplyr::summarize(n = n()) %>% left_join(q76_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+
+title = questions[76]
+
+q76_vis <- ggplot2::ggplot(q76, aes(y = proportion, x = response_merged, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_bw() +  labs(title = stringr::str_wrap('If reassessment or reappraisal cycle requirements are not met, does your agency have statutory or administrative rule authority?',width=70), y = '', x = 'Response', subtitle = '(For example, revenue sharing money may be withheld or a reappraisal ordered)') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 8,position = position_dodge(width = 0.9), vjust = 1, hjust = .5) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 15))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.x = element_text(size = 13))
+
+q76_vis
+ggplot2::ggsave(plot = q76_vis, filename = 'visProd/q76/q76.jpg')
+
 ```
