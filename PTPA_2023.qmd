@@ -43,7 +43,7 @@ library(geojsonio)
 source('functions.R', local = T) 
 #__________________Ingest, Clean, Create
 # Get PTPA 2023 response data, with missing 2023 responses replaced with 2017 responses when applicable and appropriate
-ptpa23 <- read.csv('analysisDataMerged_20240728.csv') #20240728 has 40094 records and there are some duplicate respones for matches attempted in q62 subQ 3. However, this is not a question for analysis. Leaving alone and fixing later.
+ptpa23 <- read.csv('analysisDataMerged_20250124.csv') 
   # read.csv('analysisData.csv')
 mismatches <- read.csv('vetted_mismatches.csv')
 # Get PTPA 2017 response data, with flagged mismatches
@@ -74,7 +74,7 @@ intlGrpCounts <- ptpa23 %>% filter(question_num == 3) %>% group_by(intlGrp) %>% 
 
 
 
-# Can eventually get this from dbo.jurisdictions
+# The mismatches data frame existed for a one-off analysis in q10
 mismatches <- mismatches %>% dplyr::mutate(intlGrp = dplyr::case_when(
   cross_survey_id < 53 ~ 'USA',
   T ~ 'CANADA'))
@@ -135,7 +135,8 @@ q10visa <- ggplot2::ggplot(q10a, aes(y = sub_question, x = proportion, fill = in
 
 q10visb <- ggplot2::ggplot(q10b, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = '', y = 'Roles and Authorities', subtitle = 'Second Set of Roles and Authorities')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 3.5,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.5) +  theme(axis.text.x = element_blank()) +  labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25))
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = 'Percent of Responses per Group', y = 'Roles and Authorities', subtitle = 'Second Set of Roles and Authorities')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 3.5,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.5) + theme(axis.text.x = element_blank()) + labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25))
+# +   labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25))
 
 q10visa
 q10visb
@@ -773,12 +774,48 @@ ggplot(data = (q45), aes(x = sub_question, y = n, fill = intlGrp)) +
 ```
 
 
+
+```{r echo = F, include = F}
+# Data aggregation only chunk
+# Testing for people answering NA and something else in q47/49/51
+
+badDataCheck474951<-ptpa23 %>% dplyr::filter(question_num %in% c(47,49,51) & sub_question_id == 1 & !is.na(response_merged))
+datasetB <- ptpa23 %>% dplyr::filter(question_num %in% c(47,49,51) & !(sub_question_id %in% c(1,9)) & !is.na(response_merged)) 
+badData <- badDataCheck474951 %>% dplyr::inner_join(datasetB, by = c('intlGrp','cross_survey_id','question_num'))
+# View(badData)
+```
+
+
 ### Question 47
 
 ```{r echo = F}
-q47 <- ptpa23 %>% filter(question_num == 47) %>% select(c(question_desc, question_num, intlGrp, jurisdiction_name, sub_question, response, response_merged, X2017_response))
+q47data <- ptpa23 %>% filter(question_num == 47) %>% select(c(question_desc, question_num, intlGrp, jurisdiction_name, sub_question, response, response_merged, X2017_response))
 # View(q47)
-write.csv(q47, 'dataProd/q47.csv', row.names=F)
+write.csv(q47data, 'dataProd/q47.csv', row.names=F)
+
+title = questions[47]
+
+badDataCheck47<-ptpa23 %>% dplyr::filter(question_num %in% c(47) & sub_question_id == 1 & !is.na(response_merged))
+datasetB <- ptpa23 %>% dplyr::filter(question_num %in% c(47) & !(sub_question_id %in% c(1,9)) & !is.na(response_merged)) 
+badData47 <- badDataCheck47 %>% dplyr::inner_join(datasetB, by = c('intlGrp','cross_survey_id','question_num')) %>% dplyr::select(cross_survey_id) %>% unique()
+
+ptpa23 <- ptpa23 %>% mutate(response_merged = dplyr::case_when(question_num == '47' & sub_question_id == '1' & cross_survey_id %in% badData47[,1] ~ NA,
+                                                               T ~ response_merged) )
+
+
+# subQ 1 is no, so basically use non NA responses as the denominator without varying by sub question
+q47proportions <- ptpa23 %>% filter(question_num == 47 & sub_question_id != 9 & !is.na(response_merged)) %>% dplyr::select(intlGrp, cross_survey_id) %>% unique() %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n = n())
+
+q47 <- ptpa23 %>% filter(question_num == 47 & sub_question_id != 9 & !is.na(response_merged)) %>% dplyr::group_by(intlGrp, sub_question) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q47proportions, by = c('intlGrp')) %>% dplyr::mutate(proportion = n.x/n.y)
+
+q47vis <- ggplot2::ggplot(q47, aes(x = sub_question, y = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = 'Respondents, if answering yes, can choose multiple qualifications', x = 'Responses', y = '')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 5,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+q47vis
+
+ggplot2::ggsave(filename = 'visProd/q47/q47vis.jpg', q47vis)
+
 ```
 
 ### Question 49
@@ -787,7 +824,90 @@ write.csv(q47, 'dataProd/q47.csv', row.names=F)
 q49 <- ptpa23 %>% filter(question_num == 49) %>% select(c(question_desc, question_num, intlGrp, jurisdiction_name, sub_question, response, response_merged, X2017_response))
 # View(q49)
 write.csv(q49, 'dataProd/q49.csv', row.names=F)
+
+title <- "Renter's credit for property taxes: what affects eligibility?"
+
+
+badDataCheck49<-ptpa23 %>% dplyr::filter(question_num %in% c(49) & sub_question_id == 1 & !is.na(response_merged))
+datasetB <- ptpa23 %>% dplyr::filter(question_num %in% c(49) & !(sub_question_id %in% c(1,9)) & !is.na(response_merged)) 
+badData49 <- badDataCheck49 %>% dplyr::inner_join(datasetB, by = c('intlGrp','cross_survey_id','question_num')) %>% dplyr::select(cross_survey_id) %>% unique()
+
+ptpa23 <- ptpa23 %>% mutate(response_merged = dplyr::case_when(question_num == '49' & sub_question_id == '1' & cross_survey_id %in% badData49[,1] ~ NA,
+                                                               T ~ response_merged) )
+
+
+q49proportions <- ptpa23 %>% filter(question_num == 49 & sub_question_id != 9 & !is.na(response_merged)) %>% dplyr::select(intlGrp, cross_survey_id) %>% unique() %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n = n())
+
+q49 <- ptpa23 %>% filter(question_num == 49 & sub_question_id != 9 & !is.na(response_merged)) %>% dplyr::group_by(intlGrp, sub_question) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q49proportions, by = c('intlGrp')) %>% dplyr::mutate(proportion = n.x/n.y) %>% dplyr::mutate(sub_question = dplyr::case_when(sub_question == 'Not applicable' ~ ' Not applicable', T ~ sub_question))
+
+
+new_rows <- data.frame(
+  intlGrp = c('CANADA','CANADA','CANADA','CANADA','CANADA','CANADA','CANADA', 'INTL', 'INTL', 'INTL', 'INTL', 'INTL', 'INTL'),
+  sub_question = c('Income limits', 'Age', 'Disability', 'Owner occupied', 'Value limits', 'Veteran', 'Veteran with disability', 'Age', 'Disability', 'Owner occupied', 'Value limits', 'Veteran', 'Veteran with disability'),
+  n.x = c(0,0,0,0,0,0,0,0,0,0,0,0,0),
+  n.y = c(11,11,11,11,11,11,11,5,5,5,5,5,5),
+  proportion = c(0,0,0,0,0,0,0,0,0,0,0,0,0)
+)
+
+q49=rbind(q49, new_rows)
+
+q49vis <- ggplot2::ggplot(q49, aes(x = proportion, y = sub_question, fill = intlGrp)) +
+  geom_bar(stat = "identity", position =  position_dodge(width=1)) +
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = 'Respondents, if answering yes, can choose multiple responses', y = 'Responses', x = '')  +  geom_text(aes(label = ifelse(n.x > 0, n.x, ''), fontface = 'bold'), size = 4.5,inherit.aes = T, hjust = 1, vjust = .35, position = position_dodge(width=1))  +  labs(fill = 'Group') + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 15))  + theme(axis.text.x = element_blank()) + theme(axis.text.y = element_text(size = 13)) +  scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+q49vis
+
+ggplot2::ggsave(filename = 'visProd/q49/q49.jpg', q49vis)
 ```
+
+### Question 51
+
+```{r echo = F}
+q51 <- ptpa23 %>% filter(question_num == 51) %>% select(c(question_desc, question_num, intlGrp, jurisdiction_name, sub_question, response, response_merged, X2017_response)) %>% dplyr::mutate(response_merged = dplyr::case_when(sub_question == 'Please describe any recent changes.' & !is.na(X2017_response) & is.na(response) ~ NA, T ~ response_merged))
+
+
+title = questions[51]
+
+badDataCheck51<-ptpa23 %>% dplyr::filter(question_num %in% c(51) & sub_question_id == 1 & !is.na(response_merged))
+datasetB <- ptpa23 %>% dplyr::filter(question_num %in% c(51) & !(sub_question_id %in% c(1,9)) & !is.na(response_merged)) 
+badData51 <- badDataCheck51 %>% dplyr::inner_join(datasetB, by = c('intlGrp','cross_survey_id','question_num')) %>% dplyr::select(cross_survey_id) %>% unique()
+
+ptpa23 <- ptpa23 %>% mutate(response_merged = dplyr::case_when(question_num == '51' & sub_question_id == '1' & cross_survey_id %in% badData51[,1] ~ NA,
+                                                               T ~ response_merged) )
+
+
+q51 <- ptpa23 %>% filter(question_num == 51 & !is.na(response_merged) & sub_question_id != 9) 
+
+q51proportions <- ptpa23 %>% filter(question_num == 51 & sub_question_id != 9 & !is.na(response_merged)) %>% dplyr::select(intlGrp, cross_survey_id) %>% unique() %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n = n())
+
+q51 <- ptpa23 %>% filter(question_num == 51 & sub_question_id != 9 & !is.na(response_merged)) %>% dplyr::group_by(intlGrp, sub_question) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q51proportions, by = c('intlGrp')) %>% dplyr::mutate(proportion = n.x/n.y) %>% dplyr::mutate(sub_question = dplyr::case_when(sub_question == 'Not applicable' ~ ' Not applicable', T ~ sub_question))
+
+
+new_rows <- data.frame(
+  intlGrp = c('CANADA','CANADA','CANADA', 'INTL', 'INTL', 'INTL', 'INTL', 'INTL', 'INTL'),
+  sub_question = c('Value limits', 'Veteran', 'Veteran with disability','Age','Disability','Owner occupied','Value limits','Veteran','Veteran with disability'),
+  n.x = c(0,0,0,0,0,0,0,0,0),
+  n.y = c(11,11,11,5,5,5,5,5,5),
+  proportion = c(0,0,0,0,0,0,0,0,0)
+)
+
+q51=rbind(q51, new_rows)
+q51vis <- ggplot2::ggplot(q51, aes(x = proportion, y = sub_question, fill = intlGrp)) +
+  geom_bar(stat = "identity", position =  position_dodge(width=.85)) +
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = 'Respondents, if answering yes, can choose multiple responses', y = 'Responses', x = '')  +  geom_text(aes(label = ifelse(n.x > 0, n.x, ''), fontface = 'bold'), size = 4.5,inherit.aes = T, hjust = 1, vjust = .35, position = position_dodge(width=.85))  +  labs(fill = 'Group') + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 15))  + theme(axis.text.x = element_blank()) + theme(axis.text.y = element_text(size = 13)) +  scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+# q51vis <- ggplot2::ggplot(q51, aes(x = sub_question, y = proportion, fill = intlGrp)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = 'Respondents, if answering yes, can choose multiple responses', x = 'Responses', y = '')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 5,position = position_dodge(width = 0.9), vjust = 1.05) +  labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+
+q51vis
+
+ggplot2::ggsave(filename = 'visProd/q51/q51.jpg', q51vis)
+write.csv(q51, 'dataProd/q51.csv', row.names=F)
+```
+
+
+
 
 ### Question 54
 ```{r echo=F}
@@ -891,7 +1011,7 @@ q55vis_cat2
 q55vis_cat3
 q55vis_cat4
 q55vis_cat5
-
+# 
 ggplot2::ggsave(plot = q55vis_cat1, filename = 'visProd/q55/q55_cat1.jpg')
 ggplot2::ggsave(plot = q55vis_cat2, filename = 'visProd/q55/q55_cat2.jpg')
 ggplot2::ggsave(plot = q55vis_cat3, filename = 'visProd/q55/q55_cat3.jpg')
@@ -1036,7 +1156,7 @@ q62_no3 <- ptpa23 %>% dplyr::filter(question_num == 62 & sub_question_id %in% c(
 # matching is done on 2 questions in 2017 to 1 question  in 2023 - so we need to take a yes in either response in 2017 and match that to a yes in the broader subQ for 2017
 q62_sq3 <- ptpa23 %>% dplyr::filter(question_num == 62 & sub_question_id %in% c(3)) %>% dplyr::select(c(question_desc, cross_survey_id, jurisdiction_name, intlGrp, sub_question_id, sub_question, response, response_merged, X2017_response)) %>% dplyr::mutate(response_merged = dplyr::case_when(response_merged == 'Yes' ~ sub_question, T ~ response_merged)) %>% dplyr::filter(!is.na(response_merged ))
 
-q62 <- rbind(q62_no3, q62_sq3) %>% dplyr::filter(!is.na(response_merged)) %>% dplyr::group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(q62_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+q62 <- rbind(q62_no3, q62_sq3) %>% dplyr::filter(!is.na(response_merged)) %>% dplyr::group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(q62_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2)) %>%  dplyr::filter(sub_question != 'Overall property tax limitation laws') #per ADornfest, ptpa task force thinks this response is wrong/misinterpreted. remove from visualization
 
 title <- questions[62]
 
