@@ -33,12 +33,13 @@ library(knitr)
 library(kableExtra)
 library(sf)
 library(rnaturalearth)
-library(leaflet)
-library(plotly)
-library(leaflet.extras)
-library(DT)
+# library(leaflet)
+# library(plotly)
+# library(leaflet.extras)
+# library(DT)
 library(stringr)
 library(geojsonio)
+library(scales)
 # Grab histogram generator function
 source('functions.R', local = T) 
 #__________________Ingest, Clean, Create
@@ -131,12 +132,15 @@ q10b <- q10 %>% dplyr::filter(!(sub_question %in% c('Approve roll', 'Certify rev
 
 q10visa <- ggplot2::ggplot(q10a, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = '', y = 'Roles and Authorities', subtitle = 'First Set of Roles and Authorities')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 3.5,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.5) + theme(axis.text.x = element_blank()) + labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25))
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = 'Percent of Responses per Group', y = 'Roles and Authorities', subtitle = 'First Set of Roles and Authorities')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 3.5,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.5) +
+  #theme(axis.text.x = element_blank()) + labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25))
+   labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + scale_x_continuous(labels = scales::label_percent()) 
 
 q10visb <- ggplot2::ggplot(q10b, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = 'Percent of Responses per Group', y = 'Roles and Authorities', subtitle = 'Second Set of Roles and Authorities')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 3.5,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.5) + theme(axis.text.x = element_blank()) + labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25))
-# +   labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25))
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = 'Percent of Responses per Group', y = 'Roles and Authorities', subtitle = 'Second Set of Roles and Authorities')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 3.5,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.5) +
+# +  theme(axis.text.x = element_blank()) + labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25))
+ labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25))+ scale_x_continuous(labels = scales::label_percent())
 
 q10visa
 q10visb
@@ -145,6 +149,21 @@ ggplot2::ggsave("visProd/q10/q10a.jpg", plot = q10visa)
 ggplot2::ggsave("visProd/q10/q10b.jpg", plot = q10visb)
 
 
+#### Alan Dornfest requesting top 5. Top 5 may differ per jurisdiction grouping. Calculate this based on sum of all responses, no country grouping. Will be US-biased 
+q10top5 <- q10 %>% dplyr::group_by(sub_question) %>% dplyr::summarize(totalResponses = sum(n.x))
+
+q10top5_intermediary <- dplyr::arrange(q10top5,desc(totalResponses))  
+
+q10top5subquestions <- q10top5_intermediary[1:5,1]
+
+
+q10visTop5 <- ggplot2::ggplot(filter(q10, sub_question %in% q10top5subquestions$sub_question), aes(y = sub_question, x = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = 'Percent of Responses per Group', y = 'Roles and Authorities', subtitle = 'Top 5 Roles & Authorities')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 3.5,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.5) +  theme(axis.text.x = element_blank()) + labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + scale_x_continuous(labels = scales::label_percent())
+ # labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25))+ scale_x_continuous(labels = scales::label_percent())
+
+q10visTop5
+ggplot2::ggsave("visProd/q10/q10_top5.jpg", plot = q10visTop5)
 
 
 q10mismatches <- mismatches %>% filter(question_num == 10)  %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts2, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2)) 
@@ -173,7 +192,8 @@ write.csv(q10d,'dataProd/q10d.csv',  row.names=F)
 
 ### Question 11
 
-```{r echo = F}
+```{r echo = F, include = F}
+# not used
 q11 <- ptpa23 %>% filter(question_num == 11 & response != 'NA' )
 title <- q11$question_desc
 ggplot2::ggplot(q11, aes(y=sub_question)) + ggplot2::geom_bar(aes(y=response)) + theme_minimal() + labs(title = title, y = '') 
@@ -194,15 +214,21 @@ q13_a <- q13 %>% dplyr::filter(sub_question_id <= 10)
 
 q13_b <- q13 %>% dplyr::filter(sub_question_id > 10)
 
+q13_top10intermediary <- q13 %>% dplyr::group_by(sub_question_id) %>% dplyr::summarise(totals = sum(n.x)) %>% dplyr::arrange(desc(totals))
+
+q13_top10subquestions <- q13_top10intermediary[1:10,1]
+
+q13_top10 <- q13 %>% dplyr::filter(sub_question_id %in% c(q13_top10subquestions$sub_question_id))
+
 title <- questions[13]
 
 q13vis_a <- ggplot2::ggplot(q13_a, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_bw() + labs(title = stringr::str_wrap(title,width=65), subtitle = 'Property Set 1 - Assessed as Real, Personal, or Operating', x = '', y = 'Property Type')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group') +  theme(axis.text.x = element_blank()) +  labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25))
+  theme_bw() + labs(title = stringr::str_wrap(title,width=65), subtitle = 'Property Set 1 - Assessed as Real, Personal, or Operating', x = 'Percent of Responses per Group', y = 'Property Type')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) 
 
 q13vis_b <- ggplot2::ggplot(q13_b, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_bw() + labs(title = stringr::str_wrap(title,width=65), subtitle = 'Property Set 2 - Assessed as Real, Personal, or Operating', x = '', y = 'Property Type')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group') +  theme(axis.text.x = element_blank()) +  labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25))
+  theme_bw() + labs(title = stringr::str_wrap(title,width=65), subtitle = 'Property Set 2 - Assessed as Real, Personal, or Operating', x = 'Percent of Responses per Group', y = 'Property Type')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25))
 
 
 q13vis_a
@@ -210,12 +236,23 @@ q13vis_b
 
 ggsave(plot=q13vis_a, filename='visProd/q13/q13_a.jpg')
 ggsave(plot=q13vis_b, filename='visProd/q13/q13_b.jpg')
+
+
+q13vis_top10 <- ggplot2::ggplot(q13_top10, aes(y = sub_question, x = proportion, fill = intlGrp)) +
+  geom_bar(stat = "identity", position = "dodge")+
+  theme_bw() + labs(title = stringr::str_wrap(title,width=65), subtitle = 'Top 11 - Assessed as Real, Personal, or Operating', x = 'Percent of Responses per Group', y = 'Property Type')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25))
+
+q13vis_top10
+ggsave(plot=q13vis_top10, filename='visProd/q13/q13_top10.jpg')
+
+
 ```
 
 
 ### Question 15
 
 ```{r echo = F}
+# maybe representing subquestion 3 would be appropriate too
 q15_proportions <- ptpa23 %>% dplyr::filter(question_num == 15 & sub_question_id %in% c(1,2,4) & !is.na(response_merged)) %>% dplyr::select(c('jurisdiction_name','intlGrp')) %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n = n())
 
 q15 <- ptpa23 %>% filter(question_num == 15 & sub_question_id %in% c(1,2,4) & 
@@ -229,7 +266,7 @@ title <- questions[15]
 
 q15vis <- ggplot2::ggplot(q15, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_bw() + labs(title = title, x = '', y = 'Method')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 7,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group') +  theme(axis.text.x = element_blank()) +  labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.y = element_text(size = 12))
+  theme_bw() + labs(title = title, x = 'Percent of Responses per Group', y = 'Method')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 7,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.y = element_text(size = 12))
 
 q15vis
 
@@ -251,7 +288,7 @@ title = questions[18]
 
 q18vis <- ggplot2::ggplot(q18, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_bw() + labs(title = stringr::str_wrap(title,width=50), x = '', y = 'Role')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group') +  theme(axis.text.x = element_blank()) +  labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.y = element_text(size = 12))
+  theme_bw() + labs(title = stringr::str_wrap(title,width=50), x = 'Percent of Responses per Group', y = 'Role')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.y = element_text(size = 12))
 
 q18vis
 ggsave(plot=q18vis, filename=  'visProd/q18/q18.jpg')
@@ -294,7 +331,7 @@ q19_spn <- rbind(q19_spn1,q19_spn2,q19_spn3)
 
 q19vis_spn <- ggplot2::ggplot(q19_spn, aes(y = response_q19_forVis, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_bw() + labs(title = stringr::str_wrap('If there is a certification program, how are personnel funded? Specifically: State/Province/National Personnel',width=60), x = '', y = 'Funding Methods', subtitle = 'Respondents could choose multiple methods')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group') +  theme(axis.text.x = element_blank()) +  labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.y = element_text(size = 12))
+  theme_bw() + labs(title = stringr::str_wrap('If there is a certification program, how are personnel funded? Specifically: State/Province/National Personnel',width=60), x = 'Percent of Responses per Group', y = 'Funding Methods', subtitle = 'Respondents could choose multiple methods')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.y = element_text(size = 12))
 
 q19vis_spn
 
@@ -317,7 +354,7 @@ q19_local <- rbind(q19_local1,q19_local2,q19_local3)
 
 q19vis_local <- ggplot2::ggplot(q19_local, aes(y = response_q19_forVis, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_bw() + labs(title = stringr::str_wrap('If there is a certification program, how are personnel funded? Specifically: Local Personnel',width=60), x = '', y = 'Funding Methods', subtitle = 'Respondents could choose multiple methods')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group') +  theme(axis.text.x = element_blank()) +  labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.y = element_text(size = 12))
+  theme_bw() + labs(title = stringr::str_wrap('If there is a certification program, how are personnel funded? Specifically: Local Personnel',width=60), x = 'Percent of Responses per Group', y = 'Funding Methods', subtitle = 'Respondents could choose multiple methods')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group with Counts')  + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.y = element_text(size = 12))
 
 q19vis_local
 
@@ -340,7 +377,7 @@ title = questions[20]
 
 q20vis <- ggplot2::ggplot(q20, aes(y = response_merged, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_bw() + labs(title = stringr::str_wrap(title,width=65), x = '', y = 'Incentive-Earning Events')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group') +  theme(axis.text.x = element_blank()) +  labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.y = element_text(size = 12))
+  theme_bw() + labs(title = stringr::str_wrap(title,width=65), x = 'Percent of Responses per Group', y = 'Incentive-Earning Events')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group with Counts') +  labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.y = element_text(size = 12))
 
 q20vis
 ggplot2::ggsave(plot=q20vis, filename=  'visProd/q20/q20.jpg')
@@ -360,7 +397,7 @@ title <- questions[21]
 
 q21vis <- ggplot2::ggplot(q21, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_bw() + labs(title = stringr::str_wrap('Indicate which of the following types of reference materials your agency provides to assessors and other users',width=55), x = '', y = 'Reference Materials')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 3.5,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) + labs(fill = 'Group') + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 30))  +  labs(fill='Group') +  theme(axis.text.x = element_blank()) +  labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.y = element_text(size = 10))
+  theme_bw() + labs(title = stringr::str_wrap('Indicate which of the following types of reference materials your agency provides to assessors and other users',width=55), x = 'Percent of Responses per Group', y = 'Reference Materials')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 3.5,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 30))  +  labs(fill='Group with Counts') +  labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.y = element_text(size = 10))
 
 q21vis
 
@@ -380,7 +417,7 @@ title <- questions[22]
 q22vis <- ggplot2::ggplot(q22, aes(x = response_merged, y = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
   theme_bw() + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20)) + # Adjust width as needed
- labs(title = title, y = '', x = 'Response')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 5,position = position_dodge(width = 0.9), vjust = 1.5) + labs(fill='Group') +  theme(axis.text.y = element_blank()) +  labs(fill='Group') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.x = element_text(size = 11))
+ labs(title = title, y = 'Percent of Responses per Group', x = 'Response')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 5,position = position_dodge(width = 0.9), vjust = 1.5) + labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.x = element_text(size = 11)) + scale_y_continuous(scales::percent_format())
 
 q22vis
 
@@ -402,7 +439,7 @@ title <- questions[23]
 q23vis <- ggplot2::ggplot(q23, aes(x = response_merged, y = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
   theme_minimal() + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20)) +
- labs(title = title, y = '', x = 'Response')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 7,position = position_dodge(width = 0.9), vjust = 1) + scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 18))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.x = element_text(size = 11))
+ labs(title = title, y = 'Percent of Responses per Group', x = 'Response')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 7,position = position_dodge(width = 0.9), vjust = 1) + scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group with Counts') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 18)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.x = element_text(size = 11)) 
 
 q23vis
 
@@ -419,11 +456,11 @@ q25title = questions[25]
 q25vis <- ggplot(data = q25, aes(x = response, y = proportion, fill = intlGrp)) + 
   geom_bar(stat = "identity",  width = 0.4,
            position=position_dodge(width = 0.5))+
-  theme_bw() + labs(title =  stringr::str_wrap(q25title,width=70), subtitle = stringr::str_wrap('Note: Occupancy could mean physical occupancy or a Certificate of Occupancy from a permitting agency',width=70), y = '') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6.5,position = position_dodge(width = 0.5), vjust = 1) +   scale_y_continuous(labels = scales::percent_format())
+  theme_bw() + labs(title =  stringr::str_wrap(q25title,width=70), subtitle = stringr::str_wrap('Note: Occupancy could mean physical occupancy or a Certificate of Occupancy from a permitting agency',width=70), y = 'Percent of Responses per Group') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6.5,position = position_dodge(width = 0.5), vjust = 1) +   scale_y_continuous(labels = scales::percent_format()) + labs(fill='Group with Counts')
 
 q25vis 
 
-# ggplot2::ggsave(filename='visProd/q25/q25.jpg',plot=q25vis)
+ggplot2::ggsave(filename='visProd/q25/q25.jpg',plot=q25vis)
 
 ```
 
@@ -439,7 +476,7 @@ title <- questions[26]
 
 q26vis<-ggplot2::ggplot(q26, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_bw() +  labs(title = 'Are There Statutory Fractional Assessment Levels For:', y = 'Property Types', x = '') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.5) + labs(fill = 'Group') + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 18))  + theme(axis.text.x = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.y = element_text(size = 11))
+  theme_bw() +  labs(title = 'Are There Statutory Fractional Assessment Levels For:', y = 'Property Types', x = 'Percent of Responses per Group') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.5) + labs(fill = 'Group with Counts') + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 18))  + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.y = element_text(size = 11)) + scale_x_continuous(labels=scales::label_percent())
 
 q26vis
 
@@ -460,7 +497,7 @@ title <- questions[31]
 
 q31vis<-ggplot2::ggplot(q31, aes(y = proportion, x = response_merged, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_bw() +  labs(title = title, y = '', x = '') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 12,position = position_dodge(width = 0.9), vjust = 1, hjust = .5) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 18))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.x = element_text(size = 11))
+  theme_bw() +  labs(title = title, y = 'Percent of Responses per Group', x = 'Response') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 12,position = position_dodge(width = 0.9), vjust = 1, hjust = .5) + labs(fill = 'Group with Counts') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 18))  + scale_y_continuous(labels = scales::label_percent()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.x = element_text(size = 11))
 
 q31vis
 
@@ -480,7 +517,7 @@ title <- questions[34]
 
 q34vis<-ggplot2::ggplot(q34, aes(y = response_merged, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = '', y = 'Average Time')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 5,position = position_dodge(width = 0.9), hjust = 1.25) + labs(fill = 'Group') + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 18))  + theme(axis.text.x = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.y = element_text(size = 11))
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = 'Percent of Responses per Group', y = 'Average Time')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 5,position = position_dodge(width = 0.9), hjust = 1.25) + labs(fill = 'Group with Counts') + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 18))  + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.y = element_text(size = 11)) + scale_x_continuous(labels = scales::percent_format())
 
 
 q34vis
@@ -499,7 +536,7 @@ title = questions[35]
 
 q35vis<-ggplot2::ggplot(q35, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = 'At Least One Property Class (Real, Personal, Central)', x = '', y = 'Level of Confidentiality/Restricted Records')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 5,position = position_dodge(width = 0.9), hjust = 1.25) + labs(fill = 'Group') + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 20))  + theme(axis.text.x = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.y = element_text(size = 10))
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = 'At Least One Property Class (Real, Personal, Central)', x = 'Percent of Responses per Group', y = 'Level of Confidentiality/Restricted Records')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 5,position = position_dodge(width = 0.9), hjust = 1.25) + labs(fill = 'Group with Counts') + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 20))  + scale_x_continuous(labels = scales::label_percent()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.y = element_text(size = 10))
 
 q35vis
 
@@ -510,33 +547,24 @@ ggplot2::ggsave(filename='visProd/q35/q35.jpg',plot=q35vis)
 ### Question 36
 
 ```{r echo=F}
-# Brian asked not to use q36 - removing from presentation
 q36 <- ptpa23 %>% filter(question_num == 36 & sub_question_id != 5 & response == 'Yes') %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
 
 title <- questions[36]
 
 q36vis <- ggplot2::ggplot(q36, aes(x = sub_question, y = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +   scale_y_continuous(labels = scales::percent_format())
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = 'Response', y = 'Percent of Responses per Group', fill = 'Group with Counts')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +   scale_y_continuous(labels = scales::percent_format())  + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
 q36vis
 
-# ggplot2::ggsave(plot = q36vis, filename = 'q36.jpg')
+ggplot2::ggsave(plot = q36vis, filename = 'q36.jpg')
 
 ```
 
 
 ### Question 38
-
-
 ```{r echo = F}
-# q38 <- ptpa23 %>% filter(question_num == 38 & response != 'NA' & sub_question_id == 1) %>% mutate(cleanResponse = dplyr::case_when(
-#   response == 'No' ~ 'No',
-#   T ~ 'Yes')
-# ) %>% group_by(intlGrp, sub_question, cleanResponse) %>% summarize(n = n()) %>% data.frame() %>% filter(!is.na(cleanResponse))
-
 title <- questions[38]
-
 
 q38totalYesNo <- ptpa23 %>% filter(question_num == 38 & sub_question_id == 1 & response_merged %in% c('Yes (please describe, and cite relevant legislation if possible)', 'No')) %>% group_by(intlGrp) %>% summarize(n=n())
 
@@ -546,7 +574,7 @@ q38 <- ptpa23 %>% dplyr::filter(question_num == 38 & sub_question_id == 1 & resp
 q38vis <- ggplot(data = q38, aes(y = response_merged, x = proportion, fill = intlGrp)) + 
   geom_bar(stat = "identity",  width = 0.4,
            position=position_dodge(width = 0.5))+
-  theme_bw() + labs(title = stringr::str_wrap(title,width=80), y='Response', x='') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 7, position = position_dodge(width = 0.5),hjust = 1.25, vjust = .45) +  labs(fill = 'Group') + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 20))  + theme(axis.text.x = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.y = element_text(size = 12))
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), y='Response', x='Percent of Responses per Group') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 7, position = position_dodge(width = 0.5),hjust = 1.25, vjust = .45) +  labs(fill = 'Group with Counts') + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 20)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.y = element_text(size = 12)) + scale_x_continuous(labels = scales::label_percent())
 
 q38vis
 
@@ -554,8 +582,6 @@ ggplot2::ggsave(plot=q38vis, filename='visProd/q38/q38.jpg')
 
 
 
-
-# 
 # # Basic piechart
 # ggplot(data = filter(q38, q38$intlGrp == 'USA'), aes(x="", y=n, fill=cleanResponse)) +
 #   geom_bar(stat="identity", width=1, color="white") +
@@ -575,19 +601,6 @@ ggplot2::ggsave(plot=q38vis, filename='visProd/q38/q38.jpg')
 
 ### Question 39
 ```{r echo = F}
-# commented out lines for q39 represent proportions that include No and NA as part of n.y. This `skews` the percentages if they were to be interpreted
-# q39a <- ptpa23 %>% filter(question_num == 39 & sub_question_id < 7 & response_merged != 'None. There is no limit on increases.' & !is.na(response_merged)) %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(intlGrpCounts, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
-
-# title <- questions[39]
-
-# q39visa <- ggplot2::ggplot(q39a, aes(x = sub_question, y = proportion, fill = intlGrp)) +
-#   geom_bar(stat = "identity", position = "dodge") +
-#   theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = 'Property Type/Tax Categories', y='')+ #, y = 'Percetange of Jurisdictions Indicating a Limit') + 
-#   geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +   scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
-
-#+ theme(plot.caption = element_text("Numbers in each bar represent the total number of responses for each group/response. The y axis is unlabeled; it exists to standardize the size of each group as the proportion of valid answers to total number of jurisdictions participating in the 2023 PTPA Survey",  size = 3, color = "gray30"))
-
-
 q39testProportions <- ptpa23 %>% filter(question_num == 39 & sub_question_id < 7 & !is.na(response_merged) & !(response_merged %in% c('NA','NULL','N/A'))) %>% group_by(sub_question, intlGrp) %>% summarize(n = n())
 
 q39a <- ptpa23 %>% filter(question_num == 39 & sub_question_id < 7 & response_merged != 'None. There is no limit on increases.' & !is.na(response_merged)) %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(q39testProportions, by = c('intlGrp', 'sub_question')) %>% mutate(proportion = round(n.x/n.y,2))
@@ -597,7 +610,7 @@ title <- questions[39]
 q39visa <- ggplot2::ggplot(q39a, aes(x = sub_question, y = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
   theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = 'Property Type/Tax Categories', y='') + 
-  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +   scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))+ theme(axis.text.y = element_blank())
+  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +   scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group with Counts') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))+ theme(axis.text.y = element_blank())
 
 
 q39visa
@@ -636,7 +649,7 @@ title <- questions[40]
 
 q40visGreenA <- ggplot2::ggplot(q40_greenEnergyA, aes(x = response_merged, y = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_bw() + labs(title = stringr::str_wrap(paste0('2023: ',title),width=80), subtitle = 'Green energy producing property (wind, solar, hydroelectric, geothermal)', x = 'Exemption Status', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +   scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group')  + theme(axis.text.x = element_text(size=12)) + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+  theme_bw() + labs(title = stringr::str_wrap(paste0('2023: ',title),width=80), subtitle = 'Green energy producing property (wind, solar, hydroelectric, geothermal)', x = 'Exemption Status', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +   scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group with Counts')  + theme(axis.text.x = element_text(size=12)) + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
 q40visGreenA
 
@@ -649,7 +662,7 @@ q40_greenEnergyB <- ptpa23 %>% filter(question_num == 40 & category_id == 17 & s
 q40visGreenB <- ggplot2::ggplot(q40_greenEnergyB, aes(x = X2017_response, y = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
   theme_bw() + labs(title = stringr::str_wrap(paste0('2017: ',title),width=80), subtitle = 'Green energy producing property (wind, solar, hydroelectric, geothermal)', x = 'Exemption Status', y = '')   + theme(axis.text.x = element_text(size=12)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) + 
-  scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+  scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group with Counts') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
 
 q40visGreenB
@@ -666,7 +679,7 @@ q40_persPropA <- ptpa23 %>% filter(question_num == 40 & category_id %in% c(21) &
 q40visPersPropA <- ggplot2::ggplot(q40_persPropA, aes(x = response_merged, y = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
   theme_bw() + labs(title = stringr::str_wrap(paste0('2023: ',title),width=80), subtitle = 'Business personal property, tangible', x = 'Exemption Status', y = '')   + theme(axis.text.x = element_text(size=12)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) + 
-  scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+  scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group with Counts') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
 
 q40visPersPropA
@@ -680,7 +693,7 @@ q40_persPropB <- ptpa23 %>% filter(question_num == 40 & category_id %in% c(21) &
 q40visPersPropB <- ggplot2::ggplot(q40_persPropB, aes(x = X2017_response, y = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
   theme_bw() + labs(title = stringr::str_wrap(paste0('2017: ',title),width=80), subtitle = 'Business personal property, tangible', x = 'Exemption Status', y = '')   + theme(axis.text.x = element_text(size=12)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) + 
-  scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+  scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group with Counts') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
 q40visPersPropB
 
@@ -695,7 +708,7 @@ q40_machineA <- ptpa23 %>% filter(question_num == 40 & category_id %in% c(22) & 
 q40visMachineA <- ggplot2::ggplot(q40_machineA, aes(x = response_merged, y = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
   theme_bw() + labs(title = stringr::str_wrap(paste0('2023: ',title),width=80), subtitle = 'Machinery and equipment', x = 'Exemption Status', y = '')   + theme(axis.text.x = element_text(size=12)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) + 
-  scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+  scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group with Counts') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
 
 q40visMachineA
@@ -708,7 +721,7 @@ q40_machineB <- ptpa23 %>% filter(question_num == 40 & category_id %in% c(22) & 
 q40visMachineB <- ggplot2::ggplot(q40_persPropB, aes(x = X2017_response, y = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
   theme_bw() + labs(title = stringr::str_wrap(paste0('2017: ',title),width=80), subtitle = 'Machinery and equipment', x = 'Exemption Status', y = '')   + theme(axis.text.x = element_text(size=12)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) + 
-  scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+  scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group with Counts') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
 q40visMachineB
 
@@ -748,7 +761,7 @@ title = questions[44]
 
 q44vis <- ggplot2::ggplot(q44, aes(x = sub_question, y = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = '', x = 'Response', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 16))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = '', x = 'Response', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group with Counts') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 16))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
 q44vis
 ggplot2::ggsave(q44vis, filename='visProd/q44/q44.jpg')
@@ -810,7 +823,7 @@ q47 <- ptpa23 %>% filter(question_num == 47 & sub_question_id != 9 & !is.na(resp
 
 q47vis <- ggplot2::ggplot(q47, aes(x = sub_question, y = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = 'Respondents, if answering yes, can choose multiple qualifications', x = 'Responses', y = '')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 5,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = 'Respondents, if answering yes, can choose multiple qualifications', x = 'Responses', y = '')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 5,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group with Counts') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
 q47vis
 
@@ -853,7 +866,7 @@ q49=rbind(q49, new_rows)
 
 q49vis <- ggplot2::ggplot(q49, aes(x = proportion, y = sub_question, fill = intlGrp)) +
   geom_bar(stat = "identity", position =  position_dodge(width=1)) +
-  theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = 'Respondents, if answering yes, can choose multiple responses', y = 'Responses', x = '')  +  geom_text(aes(label = ifelse(n.x > 0, n.x, ''), fontface = 'bold'), size = 4.5,inherit.aes = T, hjust = 1, vjust = .35, position = position_dodge(width=1))  +  labs(fill = 'Group') + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 15))  + theme(axis.text.x = element_blank()) + theme(axis.text.y = element_text(size = 13)) +  scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = 'Respondents, if answering yes, can choose multiple responses', y = 'Responses', x = '')  +  geom_text(aes(label = ifelse(n.x > 0, n.x, ''), fontface = 'bold'), size = 4.5,inherit.aes = T, hjust = 1, vjust = .35, position = position_dodge(width=1))  +  labs(fill = 'Group with Counts') + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 15))  + theme(axis.text.x = element_blank()) + theme(axis.text.y = element_text(size = 13)) +  scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
 q49vis
 
@@ -894,11 +907,11 @@ new_rows <- data.frame(
 q51=rbind(q51, new_rows)
 q51vis <- ggplot2::ggplot(q51, aes(x = proportion, y = sub_question, fill = intlGrp)) +
   geom_bar(stat = "identity", position =  position_dodge(width=.85)) +
-  theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = 'Respondents, if answering yes, can choose multiple responses', y = 'Responses', x = '')  +  geom_text(aes(label = ifelse(n.x > 0, n.x, ''), fontface = 'bold'), size = 4.5,inherit.aes = T, hjust = 1, vjust = .35, position = position_dodge(width=.85))  +  labs(fill = 'Group') + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 15))  + theme(axis.text.x = element_blank()) + theme(axis.text.y = element_text(size = 13)) +  scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = 'Respondents, if answering yes, can choose multiple responses', y = 'Responses', x = '')  +  geom_text(aes(label = ifelse(n.x > 0, n.x, ''), fontface = 'bold'), size = 4.5,inherit.aes = T, hjust = 1, vjust = .35, position = position_dodge(width=.85))  +  labs(fill = 'Group with Counts') + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 15))  + theme(axis.text.x = element_blank()) + theme(axis.text.y = element_text(size = 13)) +  scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
 # q51vis <- ggplot2::ggplot(q51, aes(x = sub_question, y = proportion, fill = intlGrp)) +
 #   geom_bar(stat = "identity", position = "dodge") +
-#   theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = 'Respondents, if answering yes, can choose multiple responses', x = 'Responses', y = '')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 5,position = position_dodge(width = 0.9), vjust = 1.05) +  labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+#   theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = 'Respondents, if answering yes, can choose multiple responses', x = 'Responses', y = '')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 5,position = position_dodge(width = 0.9), vjust = 1.05) +  labs(fill = 'Group with Counts') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
 q51vis
 
@@ -940,7 +953,7 @@ q54_cat1_vis_proportions <- ptpa23 %>% filter(question_num == 54  & !is.na(respo
 q54_cat1_vis <- ptpa23  %>% dplyr::filter(question_num == 54 & category_id == 1 & !is.na(response_merged) & sub_question_id %in% c(1,2,3,4)) %>% dplyr::group_by(intlGrp, sub_question) %>% summarize(n = n()) %>% left_join(q54_cat1_vis_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2)) 
 
 
-q54vis_cat1 <- ggplot2::ggplot(q54_cat1_vis, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap('In your jurisdiction are there value exemptions/reductions for primary residences meeting different qualifications?',width=80), x = 'Response', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+q54vis_cat1 <- ggplot2::ggplot(q54_cat1_vis, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap('In your jurisdiction are there value exemptions/reductions for primary residences meeting different qualifications?',width=80), x = 'Response', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group with Counts') + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
 q54vis_cat1
 ggplot2::ggsave(plot = q54vis_cat1, filename = 'visProd/q54/q54_cat1.jpg')
@@ -984,19 +997,19 @@ q55_cat5 <- ptpa23  %>% dplyr::filter(question_num == 55 & category_id == 5 & !i
 q55_cat5$sub_question <- stringr::str_replace_all(q55_cat5$sub_question, '-', ' - ')
 
 
-q55vis_cat1 <- ggplot2::ggplot(q55_cat1, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = q55_cat[1,1], x = 'Responses - Full or Partial Exemption Indicated', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+q55vis_cat1 <- ggplot2::ggplot(q55_cat1, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = q55_cat[1,1], x = 'Responses - Full or Partial Exemption Indicated', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group with Counts') + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
 
-q55vis_cat2 <- ggplot2::ggplot(q55_cat2, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = q55_cat[2,1], x = 'Responses - Described a Levy Type', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+q55vis_cat2 <- ggplot2::ggplot(q55_cat2, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = q55_cat[2,1], x = 'Responses - Described a Levy Type', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group with Counts') + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
 
-q55vis_cat3 <- ggplot2::ggplot(q55_cat3, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = q55_cat[3,1], x = 'Responses - Yes', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+q55vis_cat3 <- ggplot2::ggplot(q55_cat3, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = q55_cat[3,1], x = 'Responses - Yes', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group with Counts') + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
 
-q55vis_cat4 <- ggplot2::ggplot(q55_cat4, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = q55_cat[4,1], x = 'Responses - Yes', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+q55vis_cat4 <- ggplot2::ggplot(q55_cat4, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = q55_cat[4,1], x = 'Responses - Yes', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group with Counts') + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
 
-q55vis_cat5 <- ggplot2::ggplot(q55_cat5, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = q55_cat[5,1], x = 'Responses - Yes', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+q55vis_cat5 <- ggplot2::ggplot(q55_cat5, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = q55_cat[5,1], x = 'Responses - Yes', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group with Counts') + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
  
 
@@ -1035,7 +1048,7 @@ q57 <- ptpa23 %>% dplyr::filter(question_num == 57 & sub_question_id != 9 & !is.
 title = questions[57]
 q57_vis <- ggplot2::ggplot(q57, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_bw() + labs(title = stringr::str_wrap((title),width=45), x = '', y='Category', subtitle = 'Counting "Yes" Responses')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4.5,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group') +  theme(axis.text.x = element_blank()) +  scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 30)) + theme(axis.text.y = element_text(size = 10))
+  theme_bw() + labs(title = stringr::str_wrap((title),width=45), x = '', y='Category', subtitle = 'Counting "Yes" Responses')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4.5,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group with Counts') +  theme(axis.text.x = element_blank()) +  scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 30)) + theme(axis.text.y = element_text(size = 10))
 
 q57_vis
 ggplot2::ggsave(plot=q57_vis, filename=  'visProd/q57/q57.jpg')
@@ -1051,7 +1064,7 @@ q58 <- ptpa23 %>% dplyr::filter(question_num == 58 & sub_question_id != 9 & !is.
 title = questions[58]
 q58_vis <- ggplot2::ggplot(q58, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_bw() + labs(title = stringr::str_wrap((title),width=45), x = '', y='Category', subtitle = 'Counting "Yes" Responses')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4.5,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group') +  theme(axis.text.x = element_blank()) +  scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 30)) + theme(axis.text.y = element_text(size = 10))
+  theme_bw() + labs(title = stringr::str_wrap((title),width=45), x = '', y='Category', subtitle = 'Counting "Yes" Responses')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4.5,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group with Counts') +  theme(axis.text.x = element_blank()) +  scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 30)) + theme(axis.text.y = element_text(size = 10))
 
 q58_vis
 ggplot2::ggsave(plot=q58_vis, filename=  'visProd/q58/q58.jpg')
@@ -1069,7 +1082,7 @@ q59 <- ptpa23 %>% dplyr::filter(question_num == 59 & sub_question_id != 10 & !(r
 title = questions[59]
 q59_vis <- ggplot2::ggplot(q59, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_bw() + labs(title = stringr::str_wrap('Which of the following property-related business incentive or economic development programs are offered in your state/province/nation?',width=60), x = '', y='Business Incentive/Economic Development Programs', subtitle = 'Counting "Yes" Responses')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4.5,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group') +  theme(axis.text.x = element_blank()) +  scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.y = element_text(size = 9))
+  theme_bw() + labs(title = stringr::str_wrap('Which of the following property-related business incentive or economic development programs are offered in your state/province/nation?',width=60), x = '', y='Business Incentive/Economic Development Programs', subtitle = 'Counting "Yes" Responses')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4.5,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group with Counts') +  theme(axis.text.x = element_blank()) +  scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.y = element_text(size = 9))
 
 q59_vis
 ggplot2::ggsave(plot=q59_vis, filename=  'visProd/q59/q59.jpg')
@@ -1089,7 +1102,7 @@ q60 <- ptpa23  %>% dplyr::filter(question_num == 60 & !is.na(response_merged)) %
 
 title = questions[60]
 
-q60vis <- ggplot2::ggplot(q60, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = '', x = 'Response', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20))  + theme(axis.text.y = element_blank(), axis.text.x = element_text(size=12)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+q60vis <- ggplot2::ggplot(q60, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap(title,width=80), subtitle = '', x = 'Response', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group with Counts') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20))  + theme(axis.text.y = element_blank(), axis.text.x = element_text(size=12)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
 q60vis
 
@@ -1134,7 +1147,7 @@ q61vis_cat1 <- ggplot2::ggplot() +
 
 q61vis_cat1
 
-q61vis_cat2 <- ggplot2::ggplot(q61_cat2, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap('Is there a limit on annual increases in individual residential property taxes?',width=80), subtitle = q61_categories[2,1], x = 'Exemption Qualifier, Counting Number of "Yes" Responses', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank(), axis.text.x = element_text(size=10)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+q61vis_cat2 <- ggplot2::ggplot(q61_cat2, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap('Is there a limit on annual increases in individual residential property taxes?',width=80), subtitle = q61_categories[2,1], x = 'Exemption Qualifier, Counting Number of "Yes" Responses', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group with Counts') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank(), axis.text.x = element_text(size=10)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
 q61vis_cat2
 
@@ -1162,7 +1175,7 @@ title <- questions[62]
 
 q62vis <- ggplot2::ggplot(q62, aes(x = sub_question, y = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = 'Responses - Indicating Statutory Restriction or Rule', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 15)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +   scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group')  + theme(axis.text.x = element_text(size=12)) + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = 'Responses - Indicating Statutory Restriction or Rule', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 15)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +   scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group with Counts')  + theme(axis.text.x = element_text(size=12)) + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
 q62vis
 
@@ -1188,15 +1201,31 @@ q66_proportions <- ptpa23 %>% dplyr::filter(question_num == 66 & sub_question_id
 
 q66  <- ptpa23 %>% dplyr::filter(question_num == 66 & sub_question_id == 1 & !is.na(response_merged)) %>%   dplyr::mutate(response_merged = dplyr::case_when(
     response_merged == 'Not applicable--no limits' ~ 'Not Applicable',
-    T ~ response_merged)) %>% dplyr::filter(response_merged != 'Not Applicable') %>% dplyr::group_by(response_merged, intlGrp) %>% summarize(n = n()) %>% left_join(q66_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+    T ~ response_merged)) %>% dplyr::filter(response_merged != 'Not Applicable') %>% dplyr::group_by(response_merged, intlGrp) %>% summarize(n = n()) %>% left_join(q66_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2)) %>% data.frame()
 
 title = questions[66]
 q66vis <- ggplot2::ggplot(q66, aes(x = response_merged, y = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = 'Response', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 15)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +   scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group')  + theme(axis.text.x = element_text(size=12)) + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+  theme_bw() + labs(title = stringr::str_wrap(title,width=80), x = 'Response', y = 'Percent of Responses per Group')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 15)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +   scale_y_continuous(labels = scales::percent_format()) + labs(fill = 'Group with Counts')  + theme(axis.text.x = element_text(size=12)) +  scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
   
 q66vis
 ggplot2::ggsave(filename= 'visProd/q66/q66vis.jpg', plot = q66vis)
+```
+
+### Question 68
+```{r echo=F}
+# Table 12 from JPTAA PTAPP 2017- 
+# give the percentage subquestion as a normal table JPTAA style so alan can edit
+unique(q68$response_merged)
+q68 <- ptpa23 %>% dplyr::filter(question_num == 68 & sub_question_id == 2) %>% dplyr::mutate(journalResponse = dplyr::case_when(
+  
+))
+#Simple majority 
+#At least 60 percent
+#At least twothirds
+#Other percentage
+#Other system
+
 ```
 
 ### Question 69
@@ -1218,15 +1247,15 @@ q69cat3_mandatory <- q69 %>% filter(category_id == 3 & response_merged == 'Manda
 
 
 
-q69_viscat1 <- ggplot2::ggplot(q69cat1, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap('In general, what triggers a mandated property inspection?',width=80), x = 'Triggers', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank(), axis.text.x = element_text(size=10)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+q69_viscat1 <- ggplot2::ggplot(q69cat1, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap('In general, what triggers a mandated property inspection?',width=80), x = 'Triggers', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group with Counts') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank(), axis.text.x = element_text(size=10)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
-q69_viscat2_allowed <- ggplot2::ggplot(q69cat2_allowed, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap('In general, what triggers a mandated property inspection?',width=80), subtitle = 'Counting Responses - On-site Inspection is Allowed to Satisfy Inspection',x = 'Triggers', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank(), axis.text.x = element_text(size=10)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+q69_viscat2_allowed <- ggplot2::ggplot(q69cat2_allowed, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap('In general, what triggers a mandated property inspection?',width=80), subtitle = 'Counting Responses - On-site Inspection is Allowed to Satisfy Inspection',x = 'Triggers', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group with Counts') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank(), axis.text.x = element_text(size=10)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
-q69_viscat2_mandatory <- ggplot2::ggplot(q69cat2_mandatory, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap('In general, what triggers a mandated property inspection?',width=80), subtitle = 'Counting Responses - On-site Inspection is Mandatory to Satisfy Inspection', x = 'Triggers', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank(), axis.text.x = element_text(size=10)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+q69_viscat2_mandatory <- ggplot2::ggplot(q69cat2_mandatory, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap('In general, what triggers a mandated property inspection?',width=80), subtitle = 'Counting Responses - On-site Inspection is Mandatory to Satisfy Inspection', x = 'Triggers', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group with Counts') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank(), axis.text.x = element_text(size=10)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
-q69_viscat3_allowed <- ggplot2::ggplot(q69cat3_allowed, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap('In general, what triggers a mandated property inspection?',width=80), subtitle = 'Counting Responses - Desktop Review is Allowed to Satisfy Inspection',x = 'Triggers', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank(), axis.text.x = element_text(size=10)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+q69_viscat3_allowed <- ggplot2::ggplot(q69cat3_allowed, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap('In general, what triggers a mandated property inspection?',width=80), subtitle = 'Counting Responses - Desktop Review is Allowed to Satisfy Inspection',x = 'Triggers', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group with Counts') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank(), axis.text.x = element_text(size=10)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
-q69_viscat3_mandatory <- ggplot2::ggplot(q69cat3_mandatory, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap('In general, what triggers a mandated property inspection?',width=80), subtitle = 'Counting Responses - Desktop Review is Mandatory to Satisfy Inspection', x = 'Triggers', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank(), axis.text.x = element_text(size=10)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+q69_viscat3_mandatory <- ggplot2::ggplot(q69cat3_mandatory, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap('In general, what triggers a mandated property inspection?',width=80), subtitle = 'Counting Responses - Desktop Review is Mandatory to Satisfy Inspection', x = 'Triggers', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 55)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group with Counts') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank(), axis.text.x = element_text(size=10)) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
 
 q69_viscat1
 q69_viscat2_allowed
@@ -1407,14 +1436,14 @@ title <- questions[72]
 
 q72_vis_state <- ggplot2::ggplot(q72_state, aes(y = proportion, x = response_q72_forVis, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_bw() +  labs(title = stringr::str_wrap('Does statute specify a requirement for periodic reappraisal of state assessed property?',width=80), y = '', x = 'Cycle', subtitle = 'Respondents could choose multiple answers') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1, hjust = .5) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.x = element_text(size = 11))
+  theme_bw() +  labs(title = stringr::str_wrap('Does statute specify a requirement for periodic reappraisal of state assessed property?',width=80), y = '', x = 'Cycle', subtitle = 'Respondents could choose multiple answers') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1, hjust = .5) + labs(fill = 'Group with Counts') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.x = element_text(size = 11))
 
 q72_vis_state
 
 
 q72_vis_local <- ggplot2::ggplot(q72_local, aes(y = proportion, x = response_q72_forVis, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_bw() +  labs(title = stringr::str_wrap('Does statute specify a requirement for periodic reappraisal of locally assessed property?',width=75), y = '', x = 'Cycle', subtitle = 'Respondents could choose multiple answers') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1, hjust = .5) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.x = element_text(size = 11))
+  theme_bw() +  labs(title = stringr::str_wrap('Does statute specify a requirement for periodic reappraisal of locally assessed property?',width=75), y = '', x = 'Cycle', subtitle = 'Respondents could choose multiple answers') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1, hjust = .5) + labs(fill = 'Group with Counts') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.x = element_text(size = 11))
 
 q72_vis_local
 
@@ -1435,7 +1464,7 @@ customSort <- q73$response_merged %>% unique() %>% as.numeric() %>% sort()
 title <- questions[73]
 q73_vis <- ggplot2::ggplot(q73, aes(y = proportion, x = factor(response_merged, levels = c(customSort)), fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_bw() +  labs(title = stringr::str_wrap(title,width=75), y = '', x = 'Cycle (in years)') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4,position = position_dodge(width = 0.9), vjust = 1, hjust = .5) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.x = element_text(size = 11))
+  theme_bw() +  labs(title = stringr::str_wrap(title,width=75), y = '', x = 'Cycle (in years)') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4,position = position_dodge(width = 0.9), vjust = 1, hjust = .5) + labs(fill = 'Group with Counts') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.x = element_text(size = 11))
 
 q73_vis
 
@@ -1456,7 +1485,7 @@ q75 <-  ptpa23 %>% dplyr::filter(question_num == 75 & !is.na(response_merged)) %
 title = questions[75]
 q75_vis <- ggplot2::ggplot(q75, aes(y = proportion, x = sub_question, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_bw() +  labs(title = stringr::str_wrap('Between reappraisal years, is real property subject to adjustment in assessed value?',width=75), y = '', x = 'Response', subtitle = 'Respondents could choose multiple answers') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1, hjust = .5) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 15))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.x = element_text(size = 11))
+  theme_bw() +  labs(title = stringr::str_wrap('Between reappraisal years, is real property subject to adjustment in assessed value?',width=75), y = '', x = 'Response', subtitle = 'Respondents could choose multiple answers') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1, hjust = .5) + labs(fill = 'Group with Counts') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 15))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.x = element_text(size = 11))
 
 q75_vis
 ggplot2::ggsave(plot = q75_vis, filename = 'visProd/q75/q75.jpg')
@@ -1474,9 +1503,296 @@ title = questions[76]
 
 q76_vis <- ggplot2::ggplot(q76, aes(y = proportion, x = response_merged, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge") +
-  theme_bw() +  labs(title = stringr::str_wrap('If reassessment or reappraisal cycle requirements are not met, does your agency have statutory or administrative rule authority?',width=70), y = '', x = 'Response', subtitle = '(For example, revenue sharing money may be withheld or a reappraisal ordered)') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 8,position = position_dodge(width = 0.9), vjust = 1, hjust = .5) + labs(fill = 'Group') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 15))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.x = element_text(size = 13))
+  theme_bw() +  labs(title = stringr::str_wrap('If reassessment or reappraisal cycle requirements are not met, does your agency have statutory or administrative rule authority?',width=70), y = '', x = 'Response', subtitle = '(For example, revenue sharing money may be withheld or a reappraisal ordered)') +  geom_text(aes(label = n.x, fontface = 'bold'), size = 8,position = position_dodge(width = 0.9), vjust = 1, hjust = .5) + labs(fill = 'Group with Counts') + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 15))  + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + theme(axis.text.x = element_text(size = 13))
 
 q76_vis
 ggplot2::ggsave(plot = q76_vis, filename = 'visProd/q76/q76.jpg')
 
 ```
+
+
+### Summary Tables for JPTAA
+```{r echo=F}
+tableData <- ptpa23 %>% dplyr::filter(question_num %in% c(10,13,40) & is_openendedresponse==0)
+
+tableDataQ10 <- tableData %>% dplyr::filter(question_num == 10) %>% group_by(intlGrp, sub_question, response_merged) %>% summarize(n = n())
+
+q10_responses <- tableData %>% dplyr::filter(question_num == 10) %>% dplyr::select(response_merged) %>% unique()
+
+q10top5 <- tableData %>% dplyr::filter(question_num == 10) %>% mutate(tableResponse = case_when(
+  response_merged == 'Yes' ~ 'Yes',
+  response_merged == 'No' ~ 'No',
+  response_merged == 'Performed/shared with other agency' ~ 'Yes',
+  response_merged == 'Not applicable' ~ 'NA',
+  response_merged == 'Not Applicable' ~ 'NA',
+  response_merged == '' ~ 'NA',
+  response_merged == 'Yes,Performed/shared with other agency' ~ 'Yes',
+  response_merged == 'No,Not applicable' ~ 'NA' #don't really know which one to interpret, better to err on side of NA
+))
+
+q10top5counts <- q10top5 %>% dplyr::group_by(sub_question,tableResponse) %>% dplyr::summarize(N=n())
+q10top5countYESonly <- q10top5counts %>% dplyr::filter(tableResponse=='Yes')
+
+q10top5_intermediary <- dplyr::arrange(q10top5countYESonly,desc(N)) 
+
+q10top5subquestions <- q10top5_intermediary[1:5,1]
+
+q10top5_acrossAllGroups <- q10top5 %>% dplyr::filter(sub_question %in% q10top5subquestions$sub_question & tableResponse == 'Yes') %>% dplyr::group_by(sub_question, intlGrp, tableResponse) %>% dplyr::summarize(N=n()) %>% dplyr::mutate(sortVar = dplyr::case_when(
+  sub_question == q10top5subquestions[1,] ~ 1, 
+  sub_question == q10top5subquestions[2,] ~ 2,  
+  sub_question == q10top5subquestions[3,] ~ 3, 
+  sub_question == q10top5subquestions[4,] ~ 4, 
+  sub_question == q10top5subquestions[5,] ~ 5
+)) %>% dplyr::arrange(sortVar) %>% dplyr::select(-sortVar)
+
+q10top5_acrossAllGroups_Noresponses <- q10top5 %>% dplyr::filter(sub_question %in% q10top5subquestions$sub_question & tableResponse == 'No') %>% dplyr::group_by(sub_question, intlGrp, tableResponse) %>% dplyr::summarize(N=n()) %>% dplyr::mutate(sortVar = dplyr::case_when(
+  sub_question == q10top5subquestions[1,] ~ 1, 
+  sub_question == q10top5subquestions[2,] ~ 2,  
+  sub_question == q10top5subquestions[3,] ~ 3, 
+  sub_question == q10top5subquestions[4,] ~ 4, 
+  sub_question == q10top5subquestions[5,] ~ 5
+)) %>% dplyr::arrange(sortVar) %>% dplyr::select(-sortVar)
+
+q10top5_acrossAllGroups_table <- q10top5_acrossAllGroups %>% dplyr::inner_join(q10top5_acrossAllGroups_Noresponses, by=c('sub_question', 'intlGrp')) %>% dplyr::mutate(total = N.x + N.y) %>% dplyr::mutate(pctGrp = N.x/total) %>% dplyr::select(c(sub_question, intlGrp, N.x, N.y, pctGrp)) %>% dplyr::rename(Yes = N.x) %>% dplyr::rename(No = N.y)
+
+tableDataQ13 <- tableData %>% dplyr::filter(question_num == 13) %>% group_by(intlGrp, sub_question, response_merged) %>% summarize(n = n()) 
+
+q13_responses <- tableData %>% dplyr::filter(question_num == 13) %>% dplyr::select(response_merged) %>% unique()
+
+q13top5 <- tableData %>% dplyr::filter(question_num == 13) %>% mutate(tableResponse = case_when(
+  response_merged == 'Personal property' ~ 'Yes',
+  response_merged == 'Real,Personal property,Operating' ~ 'Yes',
+  response_merged == 'Mix of Central and Local Assessment' ~ 'Yes',
+  response_merged == 'Both- Locally Assessed as Real & Personal Property' ~ 'No',
+  response_merged == 'Locally Assessed as Personal Property' ~ 'No',
+  response_merged == 'Both- Locally assessed as Real & Personal Property' ~ 'No',
+  response_merged == 'Not Taxable' ~ 'No',
+  response_merged == 'Locally Assessed as Real Property' ~ 'No',
+  response_merged == 'Real' ~ 'Yes',
+  response_merged == 'Real,Personal property' ~ 'Yes',
+  response_merged == 'Centrally Assessed' ~ 'Yes',
+  response_merged == 'Personal property,Operating' ~ 'Yes',
+  response_merged == 'Operating' ~ 'Yes',
+  response_merged == 'Real,Operating' ~ 'Yes',
+  response_merged == '' ~ 'No' #if somebody didnt respond in 2017 then it will be blank, there was a "NO" option then. The jurisdictions studied in this analysis all responded in 2023. In 2023, a non-answer could truly be an NA response or "NO" - there was no explicit "NO" checkbox for this question. Therefore, we have to assume all non-answers are "NO". If there is a discrepancy in response between 2017 and 2023, 2023 is already being used as the default for the field response_merged
+  
+))
+
+q13top5counts <- q13top5 %>% dplyr::group_by(sub_question,tableResponse) %>% dplyr::summarize(N=n())
+q13top5countYESonly <- q13top5counts %>% dplyr::filter(tableResponse=='Yes')
+
+q13top5_intermediary <- dplyr::arrange(q13top5countYESonly,desc(N)) 
+
+q13top5subquestions <- q13top5_intermediary[1:5,1]
+
+q13top5_acrossAllGroups <- q13top5 %>% dplyr::filter(sub_question %in% q13top5subquestions$sub_question & tableResponse == 'Yes') %>% dplyr::group_by(sub_question, intlGrp, tableResponse) %>% dplyr::summarize(N=n()) %>% dplyr::mutate(sortVar = dplyr::case_when(
+  sub_question == q13top5subquestions[1,] ~ 1, 
+  sub_question == q13top5subquestions[2,] ~ 2,  
+  sub_question == q13top5subquestions[3,] ~ 3, 
+  sub_question == q13top5subquestions[4,] ~ 4, 
+  sub_question == q13top5subquestions[5,] ~ 5
+)) %>% dplyr::arrange(sortVar) %>% dplyr::select(-sortVar)
+
+q13_multiYear <- tableData %>% dplyr::filter(question_num == 13 & X2017_response != '' & matched_question_num == '7') %>% dplyr::mutate(tableResponse2023 = dplyr::case_when(
+  response_merged == 'Personal property' ~ 'Yes',
+  response_merged == 'Real,Personal property,Operating' ~ 'Yes',
+  response_merged == 'Real' ~ 'Yes',
+  response_merged == 'Real,Personal property' ~ 'Yes',
+  response_merged == 'Personal property,Operating' ~ 'Yes',
+  response_merged == 'Operating' ~ 'Yes',
+  response_merged == 'Real,Operating' ~ 'Yes',
+  response_merged == 'Mix of Central and Local Assessment' ~ 'Yes',
+  response_merged == 'Both- Locally Assessed as Real & Personal Property' ~ 'No',
+  response_merged == 'Locally Assessed as Personal Property' ~ 'No',
+  response_merged == 'Both- Locally assessed as Real & Personal Property' ~ 'No',
+  response_merged == 'Not Taxable' ~ 'No',
+  response_merged == 'Locally Assessed as Real Property' ~ 'No',
+  response_merged == 'Centrally Assessed' ~ 'Yes',
+  response_merged == '' ~ 'No' #if somebody didnt respond in 2017 then it will be blank, there was a "NO" option then. The jurisdictions studied in this analysis all responded in 2023. In 2023, a non-answer could truly be an NA response or "NO" - there was no explicit "NO" checkbox for this question. Therefore, we have to assume all non-answers are "NO". If there is a discrepancy in response between 2017 and 2023, 2023 is already being used as the default for the field response_merged
+  
+)) %>% dplyr::mutate(tableResponse2017 = dplyr::case_when(
+  X2017_response == 'Mix of Central and Local Assessment' ~ 'Yes',
+  X2017_response == 'Both- Locally Assessed as Real & Personal Property' ~ 'No',
+  X2017_response == 'Locally Assessed as Personal Property' ~ 'No',
+  X2017_response == 'Both- Locally assessed as Real & Personal Property' ~ 'No',
+  X2017_response == 'Not Taxable' ~ 'No',
+  X2017_response == 'Locally Assessed as Real Property' ~ 'No',
+  X2017_response == 'Centrally Assessed' ~ 'Yes'
+  )) %>% dplyr::mutate(tableResponse2017_no = dplyr::case_when(
+    tableResponse2017 == 'No' ~ 1,
+    T ~ 0
+  )) %>% dplyr::mutate(tableResponse2017_yes = dplyr::case_when(
+    tableResponse2017 == 'Yes' ~ 1,
+    T ~ 0
+  )) %>% dplyr::mutate(tableResponse2023_yes = dplyr::case_when(
+    tableResponse2023 == 'Yes' ~ 1,
+    T ~ 0
+  )) %>% dplyr::mutate(tableResponse2023_no = dplyr::case_when(
+    tableResponse2023 == 'No' ~ 1,
+    T ~ 0
+  ))
+
+
+q13_multiYear_noINTL <- q13_multiYear %>% dplyr::filter(intlGrp != 'INTL' & sub_question %in% q13top5subquestions$sub_question) %>% dplyr::group_by(sub_question, intlGrp) %>% dplyr::summarise(
+  'Centrally Assessed 2023'=sum(tableResponse2023_yes),
+  'Centrally Assessed 2017'=sum(tableResponse2017_yes),
+  'Not Centrally Assessed 2023'=sum(tableResponse2023_no),
+  'Not Centrally Assessed 2017'=sum(tableResponse2017_no)                                                                                    ) %>% data.frame() %>% dplyr::mutate('PROPERTY TYPE - GROUP' = base::toupper(paste0(sub_question, ' - ', intlGrp))) %>% dplyr::select(-c(sub_question, intlGrp))
+q13_multiYear_noINTL_table <- q13_multiYear_noINTL[,c(5,1,2,3,4)]
+
+q13_multiYear_noINTL_all_subq <- q13_multiYear %>% dplyr::filter(intlGrp != 'INTL' ) %>% dplyr::group_by(sub_question, intlGrp) %>% dplyr::summarise(
+  'Centrally Assessed 2023'=sum(tableResponse2023_yes),
+  'Centrally Assessed 2017'=sum(tableResponse2017_yes),
+  'Not Centrally Assessed 2023'=sum(tableResponse2023_no),
+  'Not Centrally Assessed 2017'=sum(tableResponse2017_no)                                                                                    ) %>% data.frame() %>% dplyr::mutate('PROPERTY TYPE - GROUP' = base::toupper(paste0(sub_question, ' - ', intlGrp))) %>% dplyr::select(-c(sub_question, intlGrp))
+
+
+q13_multiYear_noINTL_all_subq_table <- q13_multiYear_noINTL_all_subq[,c(5,1,2,3,4)]
+
+
+
+q13_singleYearINTL <- tableData %>% dplyr::filter(question_num == 13 & intlGrp == 'INTL') %>% dplyr::mutate(tableResponse2023 = dplyr::case_when(
+  response_merged == 'Personal property' ~ 'Yes',
+  response_merged == 'Real,Personal property,Operating' ~ 'Yes',
+  response_merged == 'Real' ~ 'Yes',
+  response_merged == 'Real,Personal property' ~ 'Yes',
+  response_merged == 'Personal property,Operating' ~ 'Yes',
+  response_merged == 'Operating' ~ 'Yes',
+  response_merged == 'Real,Operating' ~ 'Yes',
+  response_merged == 'Mix of Central and Local Assessment' ~ 'Yes',
+  response_merged == 'Both- Locally Assessed as Real & Personal Property' ~ 'No',
+  response_merged == 'Locally Assessed as Personal Property' ~ 'No',
+  response_merged == 'Both- Locally assessed as Real & Personal Property' ~ 'No',
+  response_merged == 'Not Taxable' ~ 'No',
+  response_merged == 'Locally Assessed as Real Property' ~ 'No',
+  response_merged == 'Centrally Assessed' ~ 'Yes',
+  response_merged == '' ~ 'No' #if somebody didnt respond in 2017 then it will be blank, there was a "NO" option then. The jurisdictions studied in this analysis all responded in 2023. In 2023, a non-answer could truly be an NA response or "NO" - there was no explicit "NO" checkbox for this question. Therefore, we have to assume all non-answers are "NO". If there is a discrepancy in response between 2017 and 2023, 2023 is already being used as the default for the field response_merged
+  
+)) %>% dplyr::mutate(tableResponse2023_yes = dplyr::case_when(
+    tableResponse2023 == 'Yes' ~ 1,
+    T ~ 0
+  )) %>% dplyr::mutate(tableResponse2023_no = dplyr::case_when(
+    tableResponse2023 == 'No' ~ 1,
+    T ~ 0
+  )) %>% dplyr::group_by(sub_question) %>% dplyr::summarise(
+  'Centrally Assessed 2023'=sum(tableResponse2023_yes),
+  'Not Centrally Assessed 2023'=sum(tableResponse2023_no) 
+  ) %>% data.frame() %>% dplyr::mutate('PROPERTY TYPE' = base::toupper(sub_question)) %>% dplyr::select(-c(sub_question))
+
+q13_singleYearINTL_table <- q13_singleYearINTL[,c(3,1,2)]
+
+tableDataQ40exploration <- tableData %>% dplyr::filter(question_num == 40 & sub_question_id != 3) %>% group_by(intlGrp,category_desc, sub_question, response, X2017_response, response_merged) %>% summarize(n = n())
+unique(tableDataQ40exploration$response_merged)
+unique(tableDataQ40exploration$response)
+unique(tableDataQ40exploration$X2017_response)
+q40exStatusInspect=dplyr::filter(tableDataQ40exploration, sub_question == 'Exemption Status') 
+unique(q40exStatusInspect$response_merged)
+
+q40_multiYear <- tableData %>% dplyr::filter(question_num == 40 & sub_question_id != 3 & !is.na(X2017_response) & X2017_response != 'NULL' & X2017_response != 'NA') %>% dplyr::mutate(tableResponse_sq1_2017 = dplyr::case_when(
+  is.na(X2017_response) ~ 'NA',                                          
+  X2017_response == "Fully exempt"~ 'FULLY EXEMPT',
+  X2017_response == "Fully taxable"~ 'FULLY TAXABLE',                          
+  X2017_response == "Partially exempt"~ 'PARTIALLY EXEMPT',
+  X2017_response == "Fully Exempt"~  'FULLY EXEMPT',
+  X2017_response == "Fully Taxable"~ 'FULLY TAXABLE',
+  X2017_response == "Partially Exempt"~ 'PARTIALLY EXEMPT',         
+  X2017_response == "Not Applicable"~ 'NA',
+  T~'NA'
+)) %>% dplyr::mutate(tableResponse_sq1_2023 = dplyr::case_when(
+  is.na(response_merged) ~ 'NA',                                          
+  response_merged == "Fully exempt"~ 'FULLY EXEMPT',
+  response_merged == "Fully taxable"~ 'FULLY TAXABLE',                          
+  response_merged == "Partially exempt"~ 'PARTIALLY EXEMPT',
+  response_merged == "Fully Exempt"~  'FULLY EXEMPT',
+  response_merged == "Fully Taxable"~ 'FULLY TAXABLE',
+  response_merged == "Partially Exempt"~ 'PARTIALLY EXEMPT',         
+  response_merged == "Not Applicable"~ 'NA',
+  T~'NA'
+)) %>% dplyr::mutate(tableResponse_sq1_2023_FE = dplyr::case_when(
+  tableResponse_sq1_2023 == 'FULLY EXEMPT' ~ 1,
+  T ~ 0
+)) %>% dplyr::mutate(tableResponse_sq1_2023_FT = dplyr::case_when(
+  tableResponse_sq1_2023 == 'FULLY TAXABLE' ~ 1,
+  T ~ 0
+)) %>% dplyr::mutate(tableResponse_sq1_2023_PE = dplyr::case_when(
+  tableResponse_sq1_2023 == 'PARTIALLY EXEMPT' ~ 1,
+  T ~ 0
+)) %>% dplyr::mutate(tableResponse_sq1_2017_FE = dplyr::case_when(
+  tableResponse_sq1_2017 == 'FULLY EXEMPT' ~ 1,
+  T ~ 0
+)) %>% dplyr::mutate(tableResponse_sq1_2017_FT = dplyr::case_when(
+  tableResponse_sq1_2017 == 'FULLY TAXABLE' ~ 1,
+  T ~ 0
+)) %>% dplyr::mutate(tableResponse_sq1_2017_PE = dplyr::case_when(
+  tableResponse_sq1_2017 == 'PARTIALLY EXEMPT' ~ 1,
+  T ~ 0
+)) %>% dplyr::mutate(tableResponse_sq2_2023 =
+  dplyr::case_when(
+    response == 'Yes' ~ 'YES',
+    response == 'No' ~ 'NO',
+    T ~ 'NA' )) %>%
+  dplyr::mutate(tableResponse_sq2_2017 = dplyr::case_when(
+    X2017_response == 'Yes' ~ 'YES',
+    X2017_response == 'No' ~ 'NO',
+    T ~ 'NA'
+  )) %>% 
+  dplyr::mutate(tableResponse_sq2_2023_Yes = dplyr::case_when(tableResponse_sq2_2023 == 'YES' ~ 1, T ~ 0)) %>%
+  dplyr::mutate(tableResponse_sq2_2023_No = dplyr::case_when(tableResponse_sq2_2023 == 'NO' ~ 1, T ~ 0)) %>%
+  dplyr::mutate(tableResponse_sq2_2017_Yes = dplyr::case_when(tableResponse_sq2_2017 == 'YES' ~ 1, T ~ 0)) %>%
+   dplyr::mutate(tableResponse_sq2_2017_No = dplyr::case_when(tableResponse_sq2_2017 == 'NO' ~ 1, T ~ 0)) %>% 
+  dplyr::mutate(tableResponse_sq4_2023 = dplyr::case_when(
+    response == 'State/Province-wide' ~ 'STATE/PROVINCE',
+    response == 'State/Province-authorized with local option' ~ 'STATE/PROVINCE WITH LOCAL OPTION',
+    response == 'By local discretion' ~ 'LOCAL',
+    T ~ 'NA'
+  )) %>% dplyr::mutate(tableResponse_sq4_2017 = dplyr::case_when(
+    X2017_response == 'State/Province-wide' ~ 'STATE/PROVINCE',
+    X2017_response == 'State/Province-authorized with local option' ~ 'STATE/PROVINCE WITH LOCAL OPTION',
+    X2017_response == 'By local discretion' ~ 'LOCAL',
+    T ~ 'NA')) %>%
+  dplyr::mutate(tableResponse_sq4_2023_SP = dplyr::case_when(tableResponse_sq4_2023 == 'STATE/PROVINCE' ~ 1, T ~ 0)) %>% 
+  dplyr::mutate(tableResponse_sq4_2017_SP = dplyr::case_when(tableResponse_sq4_2017 == 'STATE/PROVINCE' ~ 1, T ~ 0)) %>%
+  dplyr::mutate(tableResponse_sq4_2023_SPWLO = dplyr::case_when(tableResponse_sq4_2023 == 'STATE/PROVINCE WITH LOCAL OPTION' ~ 1, T ~ 0)) %>%
+  dplyr::mutate(tableResponse_sq4_2017_SPWLO = dplyr::case_when(tableResponse_sq4_2017 == 'STATE/PROVINCE WITH LOCAL OPTION' ~ 1, T ~ 0)) %>%
+  dplyr::mutate(tableResponse_sq4_2023_L = dplyr::case_when(tableResponse_sq4_2023 == 'LOCAL' ~ 1, T ~ 0)) %>% 
+  dplyr::mutate(tableResponse_sq4_2017_L = dplyr::case_when(tableResponse_sq4_2017 == 'LOCAL' ~ 1, T ~ 0))
+
+q40_multiYear_noINTL <- q40_multiYear %>% #dplyr::filter(intlGrp != 'INTL' & sub_question_id == 1) 
+dplyr::group_by(category_desc, intlGrp) %>% dplyr::summarise(
+  'FULLY EXEMPT 2023'=sum(tableResponse_sq1_2023_FE),
+  'FULLY EXEMPT 2017'=sum(tableResponse_sq1_2017_FE),
+  'FULLY TAXABLE 2023'=sum(tableResponse_sq1_2023_FT),
+  'FULLY TAXABLE 2017'=sum(tableResponse_sq1_2017_FT),
+  'PARTIALLY EXEMPT 2023'=sum(tableResponse_sq1_2023_PE),
+  'PARTIALLY EXEMPT 2017'=sum(tableResponse_sq1_2017_PE),
+  'DATA MAINTAINED 2023'=sum(tableResponse_sq2_2023_Yes),
+  'DATA MAINTAINED 2017'=sum(tableResponse_sq2_2017_Yes),
+  'DATA NOT MAINTAINED 2023'=sum(tableResponse_sq2_2023_No),
+  'DATA NOT MAINTAINED 2017'=sum(tableResponse_sq2_2017_No),
+  'MANDATED LOCAL OPTION 2023'=sum(tableResponse_sq4_2023_SPWLO),
+  'MANDATED LOCAL OPTION 2017'=sum(tableResponse_sq4_2017_SPWLO),
+  'MANDATED LOCAL 2023'=sum(tableResponse_sq4_2023_L),
+  'MANDATED LOCAL 2017'=sum(tableResponse_sq4_2017_L),
+  'MANDATED STATE/PROVINCE-WIDE 2023'=sum(tableResponse_sq4_2023_SP),
+  'MANDATED STATE/PROVINCE-WIDE 2017'=sum(tableResponse_sq4_2017_SP)
+  ) %>% data.frame() %>% dplyr::mutate('PROPERTY TYPE - GROUP' = base::toupper(paste0(category_desc, ' - ', intlGrp))) %>% dplyr::select(-c(category_desc, intlGrp))
+q40_multiYear_noINTL_table <- q40_multiYear_noINTL[,c(17,1:16)]
+
+write.csv(q40_multiYear_noINTL_table, 'dataProd/Q40_exemptionStatus_USA_CANADA_all.csv', row.names = F)
+write.csv(q13_multiYear_noINTL_all_subq_table, 'dataProd/Q13_USA_CANADA_all.csv', row.names = F)
+write.csv(q13_singleYearINTL_table, 'dataProd/Q13_INTL_all.csv', row.names = F)
+write.csv(q10top5_acrossAllGroups_table, 'dataProd/Q10_top5_all.csv', row.names = F)
+
+```
+
+
+```{r echo=F}
+### This will be exported to 2025 IAAO Data Agg Task Force members for the purpose of matching all unique responses across all unique combinations of question/subq/cat. Essentially, unique() dataframe without jurisdiction ID
+ptpa23_unique_for_responseMatchingBulk <- ptpa23 %>% dplyr::filter(match_id != 'NULL' & X2017_response != response) %>% dplyr::select(c(question_num, question_desc, matched_question_num, match_id, sub_question_id, sub_question, category_id, category_desc, response, X2017_response, response_merged)) %>% unique() %>% dplyr::arrange(question_num, matched_question_num, match_id, sub_question_id, category_id)
+
+ptpa23_unique_noLevels <- ptpa23 %>% dplyr::filter(match_id != 'NULL' & X2017_response != response) %>% dplyr::select(c(question_num, question_desc, matched_question_num, response, X2017_response)) %>% unique() %>% dplyr::arrange(question_num, matched_question_num)
+
+write.csv(ptpa23_unique_for_responseMatchingBulk,'ptpa23_unique_for_responseMatchingBulk.csv', row.names=F)
+write.csv(ptpa23_unique_noLevels,'ptpa23_unique_noLevels.csv', row.names=F)
+```
+
