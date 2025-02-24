@@ -224,11 +224,11 @@ title <- questions[13]
 
 q13vis_a <- ggplot2::ggplot(q13_a, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_bw() + labs(title = stringr::str_wrap(title,width=65), subtitle = 'Property Set 1 - Assessed as Real, Personal, or Operating', x = 'Percent of Responses per Group', y = 'Property Type')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) 
+  theme_bw() + labs(title = stringr::str_wrap(title,width=65), subtitle = 'Property Set 1 - Assessed as Real, Personal, or Operating', x = 'Percent of Responses per Group', y = 'Property Type')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 35)) 
 
 q13vis_b <- ggplot2::ggplot(q13_b, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_bw() + labs(title = stringr::str_wrap(title,width=65), subtitle = 'Property Set 2 - Assessed as Real, Personal, or Operating', x = 'Percent of Responses per Group', y = 'Property Type')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25))
+  theme_bw() + labs(title = stringr::str_wrap(title,width=65), subtitle = 'Property Set 2 - Assessed as Real, Personal, or Operating', x = 'Percent of Responses per Group', y = 'Property Type')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 35))
 
 
 q13vis_a
@@ -240,7 +240,7 @@ ggsave(plot=q13vis_b, filename='visProd/q13/q13_b.jpg')
 
 q13vis_top10 <- ggplot2::ggplot(q13_top10, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_bw() + labs(title = stringr::str_wrap(title,width=65), subtitle = 'Top 11 - Assessed as Real, Personal, or Operating', x = 'Percent of Responses per Group', y = 'Property Type')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 25))
+  theme_bw() + labs(title = stringr::str_wrap(title,width=65), subtitle = 'Top 11 - Assessed as Real, Personal, or Operating', x = 'Percent of Responses per Group', y = 'Property Type')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4,position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 35))
 
 q13vis_top10
 ggsave(plot=q13vis_top10, filename='visProd/q13/q13_top10.jpg')
@@ -410,14 +410,17 @@ ggsave(plot=q21vis,filename='visProd/q21/q21.jpg')
 ```{r echo=F}
 q22_proportions <-  ptpa23 %>% dplyr::filter(question_num == 22 & sub_question_id == 1 & response != '' & !is.na(response)) %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n=n())
   
-q22 <- ptpa23 %>% dplyr::filter(question_num == 22 & sub_question_id == 1 & response_merged != '' & !is.na(response_merged)) %>% dplyr::group_by(response_merged, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q22_proportions, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2))
+q22 <- ptpa23 %>% dplyr::filter(question_num == 22 & sub_question_id == 1 & response_merged != '' & !is.na(response_merged)) %>% dplyr::group_by(response_merged, intlGrp) %>% dplyr::summarize(n = n()) %>% dplyr::left_join(q22_proportions, by = c('intlGrp')) %>% dplyr::mutate(proportion = round(n.x/n.y,2)) %>% dplyr::mutate(response_merged = dplyr::case_when(
+  response_merged == 'Appraised as of a base year (please describe below)' ~ 'Appraised as of a base year',
+  T~response_merged
+))
 
 title <- questions[22]
 
 q22vis <- ggplot2::ggplot(q22, aes(x = response_merged, y = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
   theme_bw() + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 20)) + # Adjust width as needed
- labs(title = title, y = 'Percent of Responses per Group', x = 'Response')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 5,position = position_dodge(width = 0.9), vjust = 1.5) + labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.x = element_text(size = 11)) + scale_y_continuous(scales::percent_format())
+ labs(title = title, y = 'Percent of Responses per Group', x = 'Response')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 5,position = position_dodge(width = 0.9), vjust = 1.5) + labs(fill='Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) + theme(axis.text.x = element_text(size = 11)) + scale_y_continuous(labels = scales::percent_format())
 
 q22vis
 
@@ -432,7 +435,10 @@ ggsave(plot=q22vis,filename='visProd/q22/q22.jpg')
 
 q23_proportions <-  ptpa23 %>% dplyr::filter(question_num == 23 & sub_question_id == 1 & response != '' & !is.na(response)) %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n=n())
 
-q23 <- ptpa23 %>% filter(question_num == 23 & sub_question_id == 1 & response != '' & !is.na(response_merged)) %>% group_by(response_merged, intlGrp) %>% summarize(n = n()) %>% left_join(q23_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2))
+q23 <- ptpa23 %>% filter(question_num == 23 & sub_question_id == 1 & response != '' & !is.na(response_merged)) %>% group_by(response_merged, intlGrp) %>% summarize(n = n()) %>% left_join(q23_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2)) %>% dplyr::mutate(response_merged = dplyr::case_when(
+  response_merged == 'Appraised as of a base year (please describe below)' ~ 'Appraised as of a base year',
+  T~response_merged
+))
 
 title <- questions[23]
 
@@ -601,9 +607,9 @@ ggplot2::ggsave(plot=q38vis, filename='visProd/q38/q38.jpg')
 
 ### Question 39
 ```{r echo = F}
-q39testProportions <- ptpa23 %>% filter(question_num == 39 & sub_question_id < 7 & !is.na(response_merged) & !(response_merged %in% c('NA','NULL','N/A'))) %>% group_by(sub_question, intlGrp) %>% summarize(n = n())
+q39testProportions <- ptpa23 %>% filter(question_num == 39 & sub_question_id <= 7 & !is.na(response_merged) & !(response_merged %in% c('NA','NULL','N/A'))) %>% group_by(sub_question, intlGrp) %>% summarize(n = n())
 
-q39a <- ptpa23 %>% filter(question_num == 39 & sub_question_id < 7 & response_merged != 'None. There is no limit on increases.' & !is.na(response_merged)) %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(q39testProportions, by = c('intlGrp', 'sub_question')) %>% mutate(proportion = round(n.x/n.y,2))
+q39a <- ptpa23 %>% filter(question_num == 39 & sub_question_id <= 7 & response_merged != 'None. There is no limit on increases.' & !is.na(response_merged)) %>% group_by(sub_question, intlGrp) %>% summarize(n = n()) %>% left_join(q39testProportions, by = c('intlGrp', 'sub_question')) %>% mutate(proportion = round(n.x/n.y,2))
 
 title <- questions[39]
 
@@ -615,7 +621,7 @@ q39visa <- ggplot2::ggplot(q39a, aes(x = sub_question, y = proportion, fill = in
 
 q39visa
 
-q39b <- ptpa23 %>% filter(question_num == 39 & sub_question_id < 7 & response_merged != 'None. There is no limit on increases.' & !is.na(response_merged)) %>% mutate(response_q39b = as.numeric(stringr::str_replace(response_merged, '%', ''))/100)
+q39b <- ptpa23 %>% filter(question_num == 39 & sub_question_id <= 7 & response_merged != 'None. There is no limit on increases.' & !is.na(response_merged)) %>% mutate(response_q39b = as.numeric(stringr::str_replace(response_merged, '%', ''))/100)
 
 q39visb <- ggplot2::ggplot() +
   geom_boxplot(data=q39b, aes(x = sub_question, y = response_q39b), outlier.shape = NA) + 
@@ -624,12 +630,14 @@ q39visb <- ggplot2::ggplot() +
 
 
 q39visb
-#consider 4 variable information?
-
-# ggplot2::ggsave(plot = q36vis, filename = 'q36.jpg')
 
 ggplot2::ggsave(plot = q39visa, filename = 'visProd/q39/q39a.jpg')
 ggplot2::ggsave(plot = q39visb, filename = 'visProd/q39/q39b.jpg')
+
+q39 <- ptpa23 %>% dplyr::filter(question_num == 39 & sub_question_id <= 7 & response != 'None. There is no limit on increases.' & !is.na(response)) %>% dplyr::select(jurisdiction_name, cross_survey_id, intlGrp, question_num, sub_question, response)
+write.csv(q39, 'dataProd/q39_percentagesOnly.csv')
+
+
 ```
 
 ### Question 40
@@ -738,15 +746,40 @@ ggplot2::ggsave(plot = q40visMachineB, filename = 'visProd/q40/q40_machine_2017.
 ```
 
 
+### Question 41
+
+```{r echo=F}
+q41 <- ptpa23 %>% dplyr::filter(question_num == 41 & response != 'NULL') %>% dplyr::select(jurisdiction_name, intlGrp, question_num, question_desc, response)
+write.csv(q41, 'dataProd/q41.csv', row.names = F)
+```
+
+
 ### Question 42
 
 ```{r echo = F}
 #Value limit for business personal property exemption	Range and most frequent – possibly using bar chart with percentages – also maybe showing comparison with dollar amounts in 2017
-q42 <- ptpa23 %>% filter(question_num == 42 & sub_question_id == 2 & !is.na(response_merged) & !(response_merged %in% c('NA','NULL','N/A'))) %>% select(c('jurisdiction_name','response_merged'))
+# Later request for JPTAA to "show 2017 vs 2023 PP exemption amounts". So my interpretation of this is that we should show *changes* as well as universe of responses. However, we don't have a previous 2017 version of this question to my knowledge/on our question guide that maps between two years.  per 2017 JPTAA table 17: Additional detail about partial personal property exemptions was not asked in 2017, but Table 17 reflects comments provided in survey answers. Build manually for comparison
+q42_2023 <- ptpa23 %>% filter(question_num == 42 & sub_question_id == 2 & !is.na(response_merged) & !(response_merged %in% c('NA','NULL','N/A'))) %>% select(c('jurisdiction_name','response_merged'))
 
-knitr::kable(q42)
+q42_2017 <- data.frame('jurisdiction_name' = c('Alaska', 'Arizona', 'California', 'Colorado', 'Florida', 'Georgia', 'Idaho', 'Maryland', 'Massachusetts', 'Montana', 'Oregon', 'Texas', 'Utah', 'Washington'),
+                       'response_merged' = c('Local option, amount varies', 'First $167,130 is exempt, $67,130 in 2017', '$10,000 or less by local option', '$7,000', 'First $25,000', 'Value of $7,500 or less exempt', 'First $100,000 per taxpayer per county plus any item newly acquired and costing up to $3,000', 'Full exemption from state property tax; local option exemption from local property tax', 'Up to $10,000 by local option', '$20,000 ($100,000 beginning 2014)', '$15,000 exempt, but fully taxable if value exceeds this limit', '$500', '$3,900 aggregate; $1,000 per item', '$15,000 noncorporate sole proprietors'))
+  
+q42_all <- q42_2023 %>% dplyr::inner_join(q42_2017, by='jurisdiction_name') %>% dplyr::mutate(intrepretedChange = dplyr::case_when(
+    jurisdiction_name == 'Arizona' ~ 'Difference detected - Changes annually per response', 
+    jurisdiction_name == 'Colorado' ~ 'Difference detected' ,
+    jurisdiction_name == 'Florida' ~ 'No Change' ,
+    jurisdiction_name == 'Idaho' ~ 'Difference detected' ,
+    jurisdiction_name == 'Maryland' ~ 'Difference detected' ,
+    jurisdiction_name == 'Massachusetts' ~ 'No Change',
+    jurisdiction_name == 'Montana' ~ 'Difference detected - seems legit per: https://montana.servicenowservices.com/citizen?id=kb_article_view&sysparm_article=KB0013879 ',
+    jurisdiction_name == 'Texas' ~ 'Difference detected',
+    jurisdiction_name == 'Utah' ~  'Difference detected',
+    jurisdiction_name == 'Washington' ~ 'No Change' 
+))
+# knitr::kable(q42)
 #manually make this an Excel-style table
-write.csv(q42, 'dataProd/q42.csv', row.names=F)
+write.csv(q42_2023, 'dataProd/q42_2023_responses_Tabularized.csv', row.names=F)
+write.csv(q42_all, 'dataProd/q42_changes_between_survey_years.csv', row.names=F)
 ```
 
 ### Question 44
@@ -944,19 +977,42 @@ write.csv(q54_cat4, 'dataProd/q54_cat4.csv', row.names=F)
 write.csv(q54_cat5, 'dataProd/q54_cat5.csv', row.names=F)
 write.csv(q54_cat6, 'dataProd/q54_cat6.csv', row.names=F)
 
+#freq table, fine to show NA frequencies IMO. did that a bit in 2017 conf ppt. FOR NEWEST JPTAA 2025- include grouping by intlGrp for a more layered interpretation
+q54_cat1_intlGrping <- ptpa23 %>% filter(question_num == 54  & category_id == 1) %>% dplyr::group_by(question_desc, category_desc,sub_question, intlGrp, response_merged) %>% dplyr::summarize(freq=n())
+
+q54_cat2_intlGrping <- ptpa23 %>% filter(question_num == 54  & category_id == 2) %>% dplyr::group_by(question_desc, category_desc,sub_question, intlGrp, response_merged) %>% dplyr::summarize(freq=n())
+
+q54_cat3_intlGrping <- ptpa23 %>% filter(question_num == 54  & category_id == 3) %>% dplyr::group_by(question_desc, category_desc,sub_question, intlGrp, response_merged) %>% dplyr::summarize(freq=n())
+
+q54_cat4_intlGrping <- ptpa23 %>% filter(question_num == 54  & category_id == 4) %>% dplyr::group_by(question_desc, category_desc,sub_question, intlGrp, response_merged) %>% dplyr::summarize(freq=n())
+
+q54_cat5_intlGrping <- ptpa23 %>% filter(question_num == 54  & category_id == 5) %>% dplyr::group_by(question_desc, category_desc,sub_question, intlGrp, response_merged) %>% dplyr::summarize(freq=n())
+
+q54_cat6_intlGrping <- ptpa23 %>% filter(question_num == 54  & category_id == 6) %>% dplyr::group_by(question_desc, category_desc,sub_question, intlGrp, response_merged) %>% dplyr::summarize(freq=n())
+
+write.csv(q54_cat1_intlGrping, 'dataProd/q54_cat1_intlGrps.csv', row.names=F)
+write.csv(q54_cat2_intlGrping, 'dataProd/q54_cat2_intlGrps.csv', row.names=F)
+write.csv(q54_cat3_intlGrping, 'dataProd/q54_cat3_intlGrps.csv', row.names=F)
+write.csv(q54_cat4_intlGrping, 'dataProd/q54_cat4_intlGrps.csv', row.names=F)
+write.csv(q54_cat5_intlGrping, 'dataProd/q54_cat5_intlGrps.csv', row.names=F)
+write.csv(q54_cat6_intlGrping, 'dataProd/q54_cat6_intlGrps.csv', row.names=F)
+
+#multiYear Comparison table - only matched on category_id = 1 for 2023 (no categories in 2017)
+#X2017_response is all NULL - maybe a data issue because cateogry_id is null in 2017 and category_id is not in 2023, and then join failed.
+q54_multiYear_cat1 <- ptpa23 %>% filter(question_num == 54  & category_id == 1) %>% dplyr::select(jurisdiction_name, question_desc, category_desc, sub_question, response_merged, response, X2017_response)
 
 
 
 q54_cat1_vis_proportions <- ptpa23 %>% filter(question_num == 54  & !is.na(response_merged)) %>% dplyr::select(cross_survey_id, intlGrp) %>% unique() %>% dplyr::group_by(intlGrp) %>% summarize(n = n())
 
 # these sub questions specifically requested by Alan Dornfest
-q54_cat1_vis <- ptpa23  %>% dplyr::filter(question_num == 54 & category_id == 1 & !is.na(response_merged) & sub_question_id %in% c(1,2,3,4)) %>% dplyr::group_by(intlGrp, sub_question) %>% summarize(n = n()) %>% left_join(q54_cat1_vis_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2)) 
+q54_cat1_vis_AD_data <- ptpa23  %>% dplyr::filter(question_num == 54 & category_id == 1 & !is.na(response_merged) & sub_question_id %in% c(1,2,3,4)) %>% dplyr::group_by(intlGrp, sub_question) %>% summarize(n = n()) %>% left_join(q54_cat1_vis_proportions, by = c('intlGrp')) %>% mutate(proportion = round(n.x/n.y,2)) 
 
 
-q54vis_cat1 <- ggplot2::ggplot(q54_cat1_vis, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap('In your jurisdiction are there value exemptions/reductions for primary residences meeting different qualifications?',width=80), x = 'Response', y = '')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group with Counts') + theme(axis.text.y = element_blank()) + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7'))
+q54vis_cat1_AD <- ggplot2::ggplot(q54_cat1_vis_AD_data, aes(x = sub_question, y = proportion, fill = intlGrp)) +  geom_bar(stat = "identity", position = "dodge") + theme_bw() + labs(title = stringr::str_wrap('In your jurisdiction are there value exemptions/reductions for primary residences meeting different qualifications?',width=80), x = 'Response', y = 'Percent of Responses per Group')  + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) +  geom_text(aes(label = n.x, fontface = 'bold'), size = 6,position = position_dodge(width = 0.9), vjust = 1.25) +  labs(fill = 'Group with Counts') + scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_continuous(labels = scales::percent_format())
 
 q54vis_cat1
-ggplot2::ggsave(plot = q54vis_cat1, filename = 'visProd/q54/q54_cat1.jpg')
+ggplot2::ggsave(plot = q54vis_cat1_AD, filename = 'visProd/q54/q54_cat1_AD_requested_subQuestions.jpg')
 
 ```
 
@@ -1048,7 +1104,7 @@ q57 <- ptpa23 %>% dplyr::filter(question_num == 57 & sub_question_id != 9 & !is.
 title = questions[57]
 q57_vis <- ggplot2::ggplot(q57, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_bw() + labs(title = stringr::str_wrap((title),width=45), x = '', y='Category', subtitle = 'Counting "Yes" Responses')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4.5,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group with Counts') +  theme(axis.text.x = element_blank()) +  scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 30)) + theme(axis.text.y = element_text(size = 10))
+  theme_bw() + labs(title = stringr::str_wrap((title),width=45), x = 'Percent of Responses per Group', y='Category', subtitle = 'Counting "Yes" Responses')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4.5,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group with Counts') +   scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 30)) + theme(axis.text.y = element_text(size = 10)) + scale_x_continuous(labels = scales::percent_format())
 
 q57_vis
 ggplot2::ggsave(plot=q57_vis, filename=  'visProd/q57/q57.jpg')
@@ -1064,7 +1120,7 @@ q58 <- ptpa23 %>% dplyr::filter(question_num == 58 & sub_question_id != 9 & !is.
 title = questions[58]
 q58_vis <- ggplot2::ggplot(q58, aes(y = sub_question, x = proportion, fill = intlGrp)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme_bw() + labs(title = stringr::str_wrap((title),width=45), x = '', y='Category', subtitle = 'Counting "Yes" Responses')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4.5,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group with Counts') +  theme(axis.text.x = element_blank()) +  scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 30)) + theme(axis.text.y = element_text(size = 10))
+  theme_bw() + labs(title = stringr::str_wrap((title),width=45), x = 'Percent of Responses per Group', y='Category', subtitle = 'Counting "Yes" Responses')  +  geom_text(aes(label = n.x, fontface = 'bold'), size = 4.5,position = position_dodge(width = 0.9), vjust = 0.4, hjust = 1.5) +   scale_x_continuous(labels = scales::percent_format()) +  labs(fill='Group with Counts') +  scale_fill_manual(values = c("CANADA" = '#E69F00', "USA" = '#56B4E9', "INTL" = '#CC79A7')) + scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 30)) + theme(axis.text.y = element_text(size = 10)) + scale_x_continuous(labels = scales::percent_format())
 
 q58_vis
 ggplot2::ggsave(plot=q58_vis, filename=  'visProd/q58/q58.jpg')
@@ -1156,6 +1212,7 @@ ggplot2::ggsave(plot = q61vis_cat1, filename = 'visProd/q61/q61_cat1.jpg')
 ggplot2::ggsave(plot = q61vis_cat2, filename = 'visProd/q61/q61_cat2.jpg')
 
 write.csv(ptpa23 %>% dplyr::filter(question_num == 61), 'dataProd/q61.csv' , row.names = F)
+write.csv(ptpa23 %>% dplyr::filter(question_num == 61 & category_id == 1 & response_merged != 'NA' & response_merged != 'No'), 'dataProd/q61_percentagesOnly.csv' , row.names = F)
 
 ```
 
@@ -1210,22 +1267,45 @@ q66vis <- ggplot2::ggplot(q66, aes(x = response_merged, y = proportion, fill = i
   
 q66vis
 ggplot2::ggsave(filename= 'visProd/q66/q66vis.jpg', plot = q66vis)
+
+
+q66_openEndedResponses  <- ptpa23 %>% dplyr::filter(question_num == 66 & is_openendedresponse == 1 & !is.na(response) & response != 'NA' & response != 'NULL')  %>% dplyr::select(cross_survey_id, jurisdiction_name, intlGrp, question_num, sub_question, response)
+
+write.csv(q66_openEndedResponses, 'dataProd/q66_openEndedResponses.csv')
 ```
 
 ### Question 68
 ```{r echo=F}
-# Table 12 from JPTAA PTAPP 2017- 
-# give the percentage subquestion as a normal table JPTAA style so alan can edit
-unique(q68$response_merged)
-q68 <- ptpa23 %>% dplyr::filter(question_num == 68 & sub_question_id == 2) %>% dplyr::mutate(journalResponse = dplyr::case_when(
-  
-))
+# Table 12 response options from JPTAA PTAPP 2017- 
 #Simple majority 
 #At least 60 percent
 #At least twothirds
 #Other percentage
 #Other system
+# so merge these into that format so the 1999/2012/2017 can be updated with 2023
+q68 <- ptpa23 %>% dplyr::filter(question_num == 68 & sub_question_id == 2) %>% dplyr::mutate(journalResponse = dplyr::case_when(
+ response_merged=="50%" ~ 'SIMPLE MAJORITY',                                     
+ response_merged=="over 50% voter approval." ~ 'SIMPLE MAJORITY',                            
+ response_merged=="50% plus 1 vote" ~ 'SIMPLE MAJORITY',                                 
+ response_merged=="66" ~ 'AT LEAST TWO-THIRDS',                                      
+ response_merged=="50%+1"  ~ 'SIMPLE MAJORITY',         
+ response_merged=="Majority vote" ~ 'SIMPLE MAJORITY',   
+ response_merged=="Super majority." ~ 'AT LEAST TWO-THIRDS',   
+ response_merged=="50"~'SIMPLE MAJORITY',
+ response_merged=="Voter approval required for all bonding. Not percentage based." ~ 'SIMPLE MAJORITY',
+ response_merged=="Falls under different state agency" ~ 'NA', #will show up in results because journalResponse is not filtered. This is intentional - at this time I'm unsure if NA is better than `OTHER SYSTEM` as a response.
+ response_merged=="If yes, what is the percentage of votes required for bonded indebtedness approval?:  51%" ~ 'SIMPLE MAJORITY', 
+ response_merged=="majority" ~ 'SIMPLE MAJORITY',
+ response_merged=="May and November elections it is a simple majority.  February and August elections it is a double majority. (e.g. a majority of eligible voters participate and a majority of them vote in favor)." ~ 'SIMPLE MAJORITY',
+ response_merged=="If bonded indebtedness exceeds the 8% limit it requires voter approval." ~ 'SIMPLE MAJORITY', 
+ response_merged=="60" ~ 'AT LEAST 60 PERCENT'
 
+)) %>% dplyr::filter(response_merged != 'NA') %>% dplyr::select(cross_survey_id, intlGrp, jurisdiction_name, question_num, question_desc, sub_question, response_merged, journalResponse)
+
+q68_table12Format <- q68 %>% dplyr::group_by(journalResponse, intlGrp) %>% dplyr::summarise(n = n())
+
+write.csv(q68, 'dataProd/q68_allJournalFormResponses.csv', row.names=F)
+write.csv(q68, 'dataProd/q68_table12Format_2023Responses.csv', row.names=F)
 ```
 
 ### Question 69
@@ -1688,7 +1768,9 @@ unique(tableDataQ40exploration$X2017_response)
 q40exStatusInspect=dplyr::filter(tableDataQ40exploration, sub_question == 'Exemption Status') 
 unique(q40exStatusInspect$response_merged)
 
-q40_multiYear <- tableData %>% dplyr::filter(question_num == 40 & sub_question_id != 3 & !is.na(X2017_response) & X2017_response != 'NULL' & X2017_response != 'NA') %>% dplyr::mutate(tableResponse_sq1_2017 = dplyr::case_when(
+# This is showing only respondents in 2017. Then, we really don't care about 2017 responses because these already exist in PTAPP JPTAA 2017 tables 15+16.
+## therefore removing this from filter() below:  & !is.na(X2017_response) & X2017_response != 'NULL' & X2017_response != 'NA'
+q40_multiYear <- tableData %>% dplyr::filter(question_num == 40 & sub_question_id != 3) %>% dplyr::mutate(tableResponse_sq1_2017 = dplyr::case_when(
   is.na(X2017_response) ~ 'NA',                                          
   X2017_response == "Fully exempt"~ 'FULLY EXEMPT',
   X2017_response == "Fully taxable"~ 'FULLY TAXABLE',                          
@@ -1755,9 +1837,7 @@ q40_multiYear <- tableData %>% dplyr::filter(question_num == 40 & sub_question_i
   dplyr::mutate(tableResponse_sq4_2023_SPWLO = dplyr::case_when(tableResponse_sq4_2023 == 'STATE/PROVINCE WITH LOCAL OPTION' ~ 1, T ~ 0)) %>%
   dplyr::mutate(tableResponse_sq4_2017_SPWLO = dplyr::case_when(tableResponse_sq4_2017 == 'STATE/PROVINCE WITH LOCAL OPTION' ~ 1, T ~ 0)) %>%
   dplyr::mutate(tableResponse_sq4_2023_L = dplyr::case_when(tableResponse_sq4_2023 == 'LOCAL' ~ 1, T ~ 0)) %>% 
-  dplyr::mutate(tableResponse_sq4_2017_L = dplyr::case_when(tableResponse_sq4_2017 == 'LOCAL' ~ 1, T ~ 0))
-
-q40_multiYear_noINTL <- q40_multiYear %>% #dplyr::filter(intlGrp != 'INTL' & sub_question_id == 1) 
+  dplyr::mutate(tableResponse_sq4_2017_L = dplyr::case_when(tableResponse_sq4_2017 == 'LOCAL' ~ 1, T ~ 0)) %>% 
 dplyr::group_by(category_desc, intlGrp) %>% dplyr::summarise(
   'FULLY EXEMPT 2023'=sum(tableResponse_sq1_2023_FE),
   'FULLY EXEMPT 2017'=sum(tableResponse_sq1_2017_FE),
@@ -1775,10 +1855,55 @@ dplyr::group_by(category_desc, intlGrp) %>% dplyr::summarise(
   'MANDATED LOCAL 2017'=sum(tableResponse_sq4_2017_L),
   'MANDATED STATE/PROVINCE-WIDE 2023'=sum(tableResponse_sq4_2023_SP),
   'MANDATED STATE/PROVINCE-WIDE 2017'=sum(tableResponse_sq4_2017_SP)
-  ) %>% data.frame() %>% dplyr::mutate('PROPERTY TYPE - GROUP' = base::toupper(paste0(category_desc, ' - ', intlGrp))) %>% dplyr::select(-c(category_desc, intlGrp))
-q40_multiYear_noINTL_table <- q40_multiYear_noINTL[,c(17,1:16)]
+  ) %>% data.frame() %>% dplyr::mutate('PROPERTY TYPE - GROUP' = base::toupper(paste0(category_desc, ' - ', intlGrp))) 
+q40_multiYear_withCatAndIntlGrp <- q40_multiYear
+q40_multiYear <- q40_multiYear %>% dplyr::select(-c(category_desc, intlGrp))
+q40_multiYear_table <- q40_multiYear[,c(17,1:16)]
 
-write.csv(q40_multiYear_noINTL_table, 'dataProd/Q40_exemptionStatus_USA_CANADA_all.csv', row.names = F)
+q40_top5intermediary <- q40_multiYear_withCatAndIntlGrp %>% dplyr::group_by(category_desc) %>% dplyr::summarise(n = sum(FULLY.EXEMPT.2023+PARTIALLY.EXEMPT.2023)) %>% dplyr::arrange(desc(n))
+q40_top5 <- q40_top5intermediary[1:5,] %>% rename(fullOrPartialExempt = n)
+
+# 6.	want to focus on a table of personal property exemptions in 40: PP - intang, PP- tang, machinery & equipment, business inventory - provide list of what's fully exempt for M&E, PP-TANG
+# a.	give the year that they became fully exempt <= q41
+# b.	alan wants fully exempt M&E and PP-tang full listing of who does that BTWEEN TWO GROUPS
+
+q40_pp <- q40_multiYear_withCatAndIntlGrp %>% dplyr::filter(category_desc %in% c('Business inventory','Business personal property, intangible', 'Business personal property, tangible','Machinery and equipment'))
+
+
+# q62 checkbox not single select radio button
+table11_JPTAA_responsesFromQ62_sq1 <- ptpa23 %>% dplyr::filter(question_num == 62 & sub_question_id == 1 & response_merged != 'NA' & !is.na(response_merged) & response_merged != 'NULL') %>% dplyr::mutate(response_merged = dplyr::case_when(response_merged == 'Yes' ~ sub_question, T ~ response_merged)) %>% dplyr::group_by(intlGrp) %>% summarize(n=n())
+
+table11_JPTAA_responsesFromQ62_sq2 <- ptpa23 %>% dplyr::filter(question_num == 62 & sub_question_id == 2 & response_merged != 'NA' & !is.na(response_merged) & response_merged != 'NULL') %>% dplyr::mutate(response_merged = dplyr::case_when(response_merged == 'Yes' ~ sub_question, T ~ response_merged)) %>% dplyr::group_by(intlGrp) %>% summarize(n=n())
+
+#i.	 Rate or levy increase limits: Q62 SQ1 OR 2 – must be present ONLY in 1 of 2 is how i'm choosing to interpret this for 2023 survey JPTAA
+table11_JPTAA_responsesFromQ62_sq1_jurisdictionName <- ptpa23 %>% dplyr::filter(question_num == 62 & sub_question_id == 1 & response_merged != 'NA' & !is.na(response_merged) & response_merged != 'NULL') %>% dplyr::mutate(response_merged = dplyr::case_when(response_merged == 'Yes' ~ sub_question, T ~ response_merged)) %>% dplyr::group_by(intlGrp, jurisdiction_name) %>% summarize(n=n())
+
+table11_JPTAA_responsesFromQ62_sq2_jurisdictionName <- ptpa23 %>% dplyr::filter(question_num == 62 & sub_question_id == 2 & response_merged != 'NA' & !is.na(response_merged) & response_merged != 'NULL') %>% dplyr::mutate(response_merged = dplyr::case_when(response_merged == 'Yes' ~ sub_question, T ~ response_merged)) %>% dplyr::group_by(intlGrp, jurisdiction_name) %>% summarize(n=n())
+
+sq1_antiJoin <- table11_JPTAA_responsesFromQ62_sq1_jurisdictionName %>% dplyr::anti_join(table11_JPTAA_responsesFromQ62_sq2_jurisdictionName, by = c('intlGrp', 'jurisdiction_name'))
+sq2_antiJoin <- table11_JPTAA_responsesFromQ62_sq2_jurisdictionName %>% dplyr::anti_join(table11_JPTAA_responsesFromQ62_sq1_jurisdictionName, by = c('intlGrp', 'jurisdiction_name'))
+
+# single response (ignoring please explain subQ)
+table11_JPTAA_responsesFromQ63 <- ptpa23 %>% dplyr::filter(question_num == 63 & sub_question_id <= 1 & response_merged != 'NA' & !is.na(response_merged) & response_merged != 'NULL' & response_merged != 'Does not apply.') %>% dplyr::group_by(intlGrp) %>% summarize(n=n())
+
+# single response (ignoring please explain subQ)
+table11_JPTAA_responsesFromQ66 <- ptpa23 %>% dplyr::filter(question_num == 66 & response_merged == 'Yes') %>% dplyr::group_by(intlGrp) %>% summarize(n=n())
+
+# single response (ignoring please explain subQ)
+table11_JPTAA_responsesFromQ68 <- ptpa23 %>% dplyr::filter(question_num == 68 & response_merged == 'Yes') %>% dplyr::group_by(intlGrp) %>% summarize(n=n())
+
+table11_JPTAA_typeOfLimitOption1 <- (rbind(sq1_antiJoin, sq2_antiJoin) %>% dplyr::group_by(intlGrp) %>% dplyr::summarize(n=n()) %>% data.frame()) %>% dplyr::mutate(typeOfLimit = 'Rate or levy increase limits')
+table11_JPTAA_typeOfLimitOption2 <- (table11_JPTAA_responsesFromQ63) %>% data.frame() %>% dplyr::mutate(typeOfLimit = 'Rate and levy increase limits')
+table11_JPTAA_typeOfLimitOption3 <- (table11_JPTAA_responsesFromQ62_sq1)  %>% data.frame() %>% dplyr::mutate(typeOfLimit = 'Levy (amount) limits')
+table11_JPTAA_typeOfLimitOption4 <- (table11_JPTAA_responsesFromQ62_sq2)  %>% data.frame() %>% dplyr::mutate(typeOfLimit = 'Rate limits')
+table11_JPTAA_typeOfLimitOption5A <- (table11_JPTAA_responsesFromQ66) %>% data.frame() %>% dplyr::mutate(typeOfLimit = 'Voter approval - For overrides')
+table11_JPTAA_typeOfLimitOption5B <- (table11_JPTAA_responsesFromQ68) %>% data.frame() %>% dplyr::mutate(typeOfLimit = 'Voter approval - For bonds')
+table11_JPTAA <- rbind(table11_JPTAA_typeOfLimitOption1,table11_JPTAA_typeOfLimitOption2,table11_JPTAA_typeOfLimitOption3,table11_JPTAA_typeOfLimitOption4,table11_JPTAA_typeOfLimitOption5A,table11_JPTAA_typeOfLimitOption5B)
+
+write.csv(table11_JPTAA, 'dataProd/Table11forJPTAA.csv', row.names = F)
+write.csv(q40_multiYear_table, 'dataProd/Q40_exemptionStatus_USA_CANADA_all.csv', row.names = F)
+write.csv(q40_top5, 'dataProd/Q40_top5_partialAndFull.csv', row.names=F)
+write.csv(q40_pp, 'dataProd/Q40_personalPropertyCategories.csv',  row.names=F)
 write.csv(q13_multiYear_noINTL_all_subq_table, 'dataProd/Q13_USA_CANADA_all.csv', row.names = F)
 write.csv(q13_singleYearINTL_table, 'dataProd/Q13_INTL_all.csv', row.names = F)
 write.csv(q10top5_acrossAllGroups_table, 'dataProd/Q10_top5_all.csv', row.names = F)
